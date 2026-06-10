@@ -1,0 +1,110 @@
+[
+  {
+    "id": "preset_001",
+    "name": "工学部食堂",
+    "type": "food",
+    "lat": 30.5445,
+    "lng": 114.3585,
+    "note": "工学部二食堂的麻辣香锅超好吃，人均15块",
+    "addedBy": "preset"
+  },
+  {
+    "id": "preset_002",
+    "name": "桂园食堂",
+    "type": "food",
+    "lat": 30.5395,
+    "lng": 114.3620,
+    "note": "桂园一楼的早餐品种多，热干面必吃",
+    "addedBy": "preset"
+  },
+  {
+    "id": "preset_003",
+    "name": "樱花大道",
+    "type": "entertainment",
+    "lat": 30.5410,
+    "lng": 114.3660,
+    "note": "每年三月樱花盛开，我们的第一次约会就在这里",
+    "addedBy": "preset"
+  },
+  {
+    "id": "preset_004",
+    "name": "图书馆总馆",
+    "type": "study",
+    "lat": 30.5400,
+    "lng": 114.3630,
+    "note": "期末复习常去的地方，A区二楼靠窗位置最舒服",
+    "addedBy": "preset"
+  },
+  {
+    "id": "preset_005",
+    "name": "广埠屯小吃街",
+    "type": "food",
+    "lat": 30.5290,
+    "lng": 114.3670,
+    "note": "各种小吃摊位，烤串、煎饼果子、奶茶都有",
+    "addedBy": "preset"
+  },
+  {
+    "id": "preset_006",
+    "name": "珞珈山超市",
+    "type": "shopping",
+    "lat": 30.5375,
+    "lng": 114.3605,
+    "note": "校内最大的超市，零食饮料日用品都有",
+    "addedBy": "preset"
+  },
+  {
+    "id": "preset_007",
+    "name": "快递点（梅园）",
+    "type": "service",
+    "lat": 30.5380,
+    "lng": 114.3590,
+    "note": "菜鸟驿站，取快递的地方，双十一人超多",
+    "addedBy": "preset"
+  },
+  {
+    "id": "preset_008",
+    "name": "八一路美食城",
+    "type": "food",
+    "lat": 30.5350,
+    "lng": 114.3680,
+    "note": "校外美食聚集地，火锅、烧烤、小龙虾应有尽有",
+    "addedBy": "preset"
+  },
+  {
+    "id": "preset_009",
+    "name": "万林艺术博物馆",
+    "type": "entertainment",
+    "lat": 30.5370,
+    "lng": 114.3650,
+    "note": "免费参观，楼顶可以俯瞰整个武大校园",
+    "addedBy": "preset"
+  },
+  {
+    "id": "preset_010",
+    "name": "文理学部教五楼",
+    "type": "study",
+    "lat": 30.5385,
+    "lng": 114.3615,
+    "note": "自习的好地方，空调足，座位多",
+    "addedBy": "preset"
+  },
+  {
+    "id": "preset_011",
+    "name": "校医院",
+    "type": "service",
+    "lat": 30.5430,
+    "lng": 114.3595,
+    "note": "看病买药用学生卡很便宜，记得带校园卡",
+    "addedBy": "preset"
+  },
+  {
+    "id": "preset_012",
+    "name": "街道口商圈",
+    "type": "shopping",
+    "lat": 30.5310,
+    "lng": 114.3550,
+    "note": "群光广场、银泰创意城，逛街看电影都在这里",
+    "addedBy": "preset"
+  }
+]
