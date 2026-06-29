@@ -27,7 +27,7 @@
 
   <!-- ====== Top Bar ====== -->
   <header id="top-bar">
-    <h1 id="site-title">💕 武大生活地图</h1>
+    <h1 id="site-title">武大生活地图</h1>
     <div id="search-box">
       <input type="text" id="search-input" placeholder="搜索地点、美食、设施..." autocomplete="off" />
       <button id="search-clear" title="清除">&times;</button>
@@ -38,37 +38,37 @@
   <!-- ====== Category Filter Sidebar ====== -->
   <aside id="category-bar">
     <button class="cat-btn active" data-type="all">
-      <span class="cat-icon">📍</span>
+      <span class="cat-dot"></span>
       <span class="cat-label">全部</span>
       <span class="cat-count" id="count-all">0</span>
     </button>
     <button class="cat-btn" data-type="food">
-      <span class="cat-icon">🍜</span>
+      <span class="cat-dot"></span>
       <span class="cat-label">美食</span>
       <span class="cat-count" id="count-food">0</span>
     </button>
     <button class="cat-btn" data-type="shopping">
-      <span class="cat-icon">🛒</span>
+      <span class="cat-dot"></span>
       <span class="cat-label">购物</span>
       <span class="cat-count" id="count-shopping">0</span>
     </button>
     <button class="cat-btn" data-type="service">
-      <span class="cat-icon">🏪</span>
+      <span class="cat-dot"></span>
       <span class="cat-label">生活</span>
       <span class="cat-count" id="count-service">0</span>
     </button>
     <button class="cat-btn" data-type="study">
-      <span class="cat-icon">📚</span>
+      <span class="cat-dot"></span>
       <span class="cat-label">学习</span>
       <span class="cat-count" id="count-study">0</span>
     </button>
     <button class="cat-btn" data-type="entertainment">
-      <span class="cat-icon">🎮</span>
+      <span class="cat-dot"></span>
       <span class="cat-label">娱乐</span>
       <span class="cat-count" id="count-entertainment">0</span>
     </button>
     <button class="cat-btn" data-type="other">
-      <span class="cat-icon">📌</span>
+      <span class="cat-dot"></span>
       <span class="cat-label">其他</span>
       <span class="cat-count" id="count-other">0</span>
     </button>
@@ -80,46 +80,58 @@
 
     <!-- Add Mode Indicator -->
     <div id="add-mode-banner" class="hidden">
-      <span>🎯 点击地图上的位置来添加新地点</span>
+      <span>点击地图上的位置来添加新地点</span>
       <button id="cancel-add">取消</button>
+    </div>
+
+    <!-- Edit Mode Indicator -->
+    <div id="edit-mode-banner" class="hidden">
+      <span>编辑模式 — 拖动标记移动位置，点击标记修改信息</span>
+      <button id="cancel-edit">完成</button>
     </div>
 
     <!-- Legend -->
     <div id="legend">
-      <div class="legend-item"><span class="legend-dot" style="background:#e74c3c"></span>美食</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#3498db"></span>购物</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#2ecc71"></span>生活</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#9b59b6"></span>学习</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#f39c12"></span>娱乐</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#c2776a"></span>美食</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#7a9db5"></span>购物</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#7a9e7e"></span>生活</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#8b7a9e"></span>学习</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#c49b6e"></span>娱乐</div>
     </div>
   </main>
 
   <!-- ====== Floating Action Buttons ====== -->
   <div id="fab-group">
     <button id="btn-add-place" title="添加地点">
-      <span>➕</span>
+      <span>+</span>
+    </button>
+    <button id="btn-edit-place" title="编辑地点">
+      <span>✎</span>
+    </button>
+    <button id="btn-reload-map" title="刷新地图瓦片">
+      <span>↻</span>
     </button>
     <button id="btn-export" title="导出数据">
-      <span>💾</span>
+      <span>↓</span>
     </button>
     <button id="btn-my-location" title="定位到我的位置">
-      <span>📍</span>
+      <span>◎</span>
     </button>
   </div>
 
   <!-- ====== Add Place Modal ====== -->
   <div id="modal-overlay" class="hidden">
     <div id="add-modal">
-      <h2>✨ 添加新地点</h2>
+      <h2 id="modal-title">✨ 添加新地点</h2>
 
       <label for="modal-type">类型</label>
       <select id="modal-type">
-        <option value="food">🍜 美食</option>
-        <option value="shopping">🛒 购物</option>
-        <option value="service">🏪 生活服务</option>
-        <option value="study">📚 学习</option>
-        <option value="entertainment">🎮 娱乐</option>
-        <option value="other">📌 其他</option>
+        <option value="food">美食</option>
+        <option value="shopping">购物</option>
+        <option value="service">生活服务</option>
+        <option value="study">学习</option>
+        <option value="entertainment">娱乐</option>
+        <option value="other">其他</option>
       </select>
 
       <label for="modal-name">名称 *</label>
@@ -127,6 +139,15 @@
 
       <label for="modal-note">备注</label>
       <textarea id="modal-note" placeholder="推荐理由、必点菜品、人均价格..." rows="3" maxlength="200"></textarea>
+
+      <label for="modal-photo">📷 照片（可选）</label>
+      <div class="modal-photo-area">
+        <input type="file" id="modal-photo" accept="image/*" />
+        <div id="modal-photo-preview" class="hidden">
+          <img id="modal-photo-preview-img" src="" alt="预览" />
+          <button id="modal-photo-remove" type="button" class="photo-remove-btn" title="移除照片">&times;</button>
+        </div>
+      </div>
 
       <div class="modal-coords">
         <span id="modal-coords-display">点击地图选择位置</span>
@@ -145,11 +166,44 @@
     <div id="detail-content">
       <h3 id="detail-name"></h3>
       <span id="detail-type-badge" class="type-badge"></span>
+      <img id="detail-photo" class="detail-photo hidden" src="" alt="" />
       <p id="detail-note"></p>
       <div id="detail-actions">
+        <button id="detail-photo-edit" class="btn-photo-edit hidden">📷 添加照片</button>
+        <input type="file" id="detail-photo-input" class="hidden" accept="image/*" />
+        <button id="detail-edit" class="btn-secondary">✏️ 编辑</button>
         <button id="detail-navigate" class="btn-primary">🗺️ 导航到这里</button>
         <button id="detail-delete" class="btn-danger hidden">🗑️ 删除</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ====== Memory Overlay (photo surprise) ====== -->
+  <div id="memory-overlay" class="hidden">
+    <div class="memory-backdrop"></div>
+    <button id="memory-close" aria-label="关闭">✕</button>
+    <div class="memory-stage">
+      <div class="memory-photo-frame">
+        <img id="memory-photo" src="" alt="" />
+      </div>
+      <div class="memory-text-box" id="memory-text"></div>
+    </div>
+    <div id="memory-hearts"></div>
+  </div>
+
+  <!-- ====== Love Counter ====== -->
+  <div id="love-counter">
+    <span class="love-counter-icon">💕</span>
+    <span id="love-counter-text">我们在一起已经 ...</span>
+  </div>
+
+  <!-- ====== Surprise (anniversary easter egg) ====== -->
+  <div id="petal-storm" class="hidden"></div>
+  <div id="surprise-card" class="hidden">
+    <div class="surprise-card-inner">
+      <span class="surprise-icon">💌</span>
+      <p id="surprise-message"></p>
+      <button id="surprise-dismiss">收下我的心意</button>
     </div>
   </div>
 
@@ -160,10 +214,14 @@
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-gesture-handling@1.2.2/dist/leaflet-gesture-handling.min.js"></script>
 
+  <script src="js/image-utils.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/routing.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/search.js"></script>
+  <script src="js/memory.js"></script>
+  <script src="js/love-counter.js"></script>
+  <script src="js/surprise.js"></script>
   <script src="js/map.js"></script>
   <script src="js/app.js"></script>
 
