@@ -41,7 +41,27 @@ const App = (() => {
       onNavigate: (place) => {
         Routing.navigate(place);
       },
+      onEditModeChange: (active) => {
+        MapModule.setEditMode(active);
+      },
+      onEditPlace: (id, data) => {
+        const result = Storage.editPlace(id, data);
+        if (!result) return;
+        if (result.idChanged) {
+          MapModule.removeMarker(result.oldId);
+          MapModule.addMarker(result.place);
+        } else {
+          MapModule.refreshMarkerPopup(result.place.id, result.place);
+        }
+        MapModule.refresh();
+        UI.showToast('✅ 地点已更新！');
+      },
     });
+
+    // 2.5 Initialize surprise modules
+    Memory.init();
+    LoveCounter.init();
+    Surprise.init();
 
     // 3. Initialize map
     MapModule.init({
@@ -54,7 +74,11 @@ const App = (() => {
 
     // 4. Initialize search
     Search.init((place) => {
-      MapModule.flyToPlace(place);
+      if (UI.isEditMode()) {
+        UI.openEditModal(place);
+      } else {
+        MapModule.flyToPlace(place);
+      }
     });
 
     // 5. Render initial data
