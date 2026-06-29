@@ -9,12 +9,12 @@ const Storage = (() => {
 
   // ---- Place type metadata ----
   const TYPE_META = {
-    food:         { icon: '🍜', label: '美食', color: '#e74c3c' },
-    shopping:     { icon: '🛒', label: '购物', color: '#3498db' },
-    service:      { icon: '🏪', label: '生活服务', color: '#2ecc71' },
-    study:        { icon: '📚', label: '学习', color: '#9b59b6' },
-    entertainment:{ icon: '🎮', label: '娱乐', color: '#f39c12' },
-    other:        { icon: '📌', label: '其他', color: '#95a5a6' },
+    food:          { icon: '🍜', label: '美食', color: '#c2776a' },
+    shopping:      { icon: '🛒', label: '购物', color: '#7a9db5' },
+    service:       { icon: '🏪', label: '生活服务', color: '#7a9e7e' },
+    study:         { icon: '📚', label: '学习', color: '#8b7a9e' },
+    entertainment: { icon: '🎮', label: '娱乐', color: '#c49b6e' },
+    other:         { icon: '📌', label: '其他', color: '#8c8c8c' },
   };
 
   let presetPlaces = [];
@@ -61,17 +61,11 @@ const Storage = (() => {
     return getAllPlaces().filter(p => !deletedIds.includes(p.id));
   }
 
-  /**
-   * Get all places of a specific type
-   */
   function getByType(type) {
     if (!type || type === 'all') return getVisiblePlaces();
     return getVisiblePlaces().filter(p => p.type === type);
   }
 
-  /**
-   * Get count of visible places by type
-   */
   function getCounts() {
     const visible = getVisiblePlaces();
     const counts = { all: visible.length };
@@ -94,7 +88,6 @@ const Storage = (() => {
   }
 
   function deletePlace(id) {
-    // Check if it's a user-added place — remove fully
     const userIdx = userPlaces.findIndex(p => p.id === id);
     if (userIdx >= 0) {
       userPlaces.splice(userIdx, 1);
@@ -102,7 +95,6 @@ const Storage = (() => {
       return true;
     }
 
-    // Preset place — add to deleted list
     if (!deletedIds.includes(id)) {
       deletedIds.push(id);
       _persistDeleted();
@@ -116,7 +108,55 @@ const Storage = (() => {
     _persistDeleted();
   }
 
-  // ---- Export / Backup ----
+  function updateUserPlace(id, updates) {
+    const idx = userPlaces.findIndex(p => p.id === id);
+    if (idx >= 0) {
+      userPlaces[idx] = { ...userPlaces[idx], ...updates };
+      _persistUserPlaces();
+      return userPlaces[idx];
+    }
+    return null;
+  }
+
+  function isUserPlace(id) {
+    return userPlaces.some(p => p.id === id);
+  }
+
+  function getPlaceById(id) {
+    const preset = presetPlaces.find(p => p.id === id);
+    if (preset) return { ...preset, _isPreset: true };
+    const user = userPlaces.find(p => p.id === id);
+    return user ? { ...user, _isPreset: false } : null;
+  }
+
+  function editPlace(id, data) {
+    const userIdx = userPlaces.findIndex(p => p.id === id);
+    if (userIdx >= 0) {
+      userPlaces[userIdx] = { ...userPlaces[userIdx], ...data };
+      _persistUserPlaces();
+      return { place: userPlaces[userIdx], idChanged: false };
+    }
+
+    const presetIdx = presetPlaces.findIndex(p => p.id === id);
+    if (presetIdx >= 0) {
+      if (!deletedIds.includes(id)) {
+        deletedIds.push(id);
+        _persistDeleted();
+      }
+      const forked = {
+        ...presetPlaces[presetIdx],
+        ...data,
+        id: 'forked_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        addedBy: 'user',
+      };
+      userPlaces.push(forked);
+      _persistUserPlaces();
+      return { place: forked, idChanged: true, oldId: id };
+    }
+
+    return null;
+  }
+
   function exportAll() {
     return JSON.stringify(getVisiblePlaces(), null, 2);
   }
@@ -125,7 +165,6 @@ const Storage = (() => {
     try {
       const data = JSON.parse(jsonString);
       if (!Array.isArray(data)) throw new Error('Not an array');
-      // Merge with existing user places (keep non-duplicate names)
       const existingNames = new Set(userPlaces.map(p => p.name));
       const newItems = data.filter(d => !existingNames.has(d.name));
       userPlaces = [...userPlaces, ...newItems.map(d => ({
@@ -141,7 +180,6 @@ const Storage = (() => {
     }
   }
 
-  // ---- Persistence helpers ----
   function _persistUserPlaces() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(userPlaces));
   }
@@ -150,7 +188,6 @@ const Storage = (() => {
     localStorage.setItem(DELETED_KEY, JSON.stringify(deletedIds));
   }
 
-  // ---- Public API ----
   return {
     TYPE_META,
     init,
@@ -160,6 +197,10 @@ const Storage = (() => {
     getCounts,
     addUserPlace,
     deletePlace,
+    updateUserPlace,
+    isUserPlace,
+    getPlaceById,
+    editPlace,
     resetDeleted,
     exportAll,
     importData,
