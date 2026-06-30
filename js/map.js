@@ -121,7 +121,7 @@ const MapModule = (() => {
       zoom: DEFAULT_ZOOM,
       zoomControl: false,
       attributionControl: true,
-      gestureHandling: true,
+      gestureHandling: false,
     });
 
     tileLayer = _createTileLayer();
