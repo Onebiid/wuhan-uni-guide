@@ -67,5 +67,18 @@ const ImageUtils = (() => {
     };
   }
 
-  return { compressImage };
+  /**
+   * Batch compress multiple files sequentially (avoids OOM).
+   * @param {File[]} files
+   * @returns {Promise<string[]>} array of base64 data URLs
+   */
+  async function compressImages(files) {
+    var results = [];
+    for (var i = 0; i < files.length; i++) {
+      results.push(await compressImage(files[i]));
+    }
+    return results;
+  }
+
+  return { compressImage, compressImages };
 })();
