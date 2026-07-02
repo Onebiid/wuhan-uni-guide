@@ -1,7 +1,7 @@
 /* ============================================
    cloud-sync.js — GitHub cloud sync
    Read: raw.githubusercontent.com (CDN, good in China)
-   Write: api.github.com (may need VPN sometimes)
+   Write: api.github.com (may need retry in China)
    ============================================ */
 
 const CloudSync = (() => {
@@ -11,8 +11,13 @@ const CloudSync = (() => {
   const API_URL = 'https://api.github.com/repos/' + REPO + '/contents/' + PATH;
   const RAW_URL = 'https://raw.githubusercontent.com/' + REPO + '/main/' + PATH;
 
+  const MAX_RETRIES = 3;
+  const RETRY_DELAYS = [1000, 3000, 6000]; // exponential-ish backoff
+  const FETCH_TIMEOUT = 12000; // 12s per attempt
+
   let _sha = null;
   let _syncInProgress = false;
+  let _lastSyncAttempt = 0;
 
   // Restore SHA from localStorage
   try {
@@ -33,17 +38,33 @@ const CloudSync = (() => {
     return { type: 'github', repo: REPO, isConfigured: true };
   }
 
+  // ---- Fetch with timeout ----
+  function _fetchWithTimeout(url, opts, timeout) {
+    var abort = new AbortController();
+    var signal = opts ? opts.signal : null;
+    // Merge abort signals
+    var mergedOpts = Object.assign({}, opts || {}, { signal: abort.signal });
+    var timer = setTimeout(function() { abort.abort(); }, timeout || FETCH_TIMEOUT);
+    return fetch(url, mergedOpts).then(function(resp) {
+      clearTimeout(timer);
+      return resp;
+    }).catch(function(e) {
+      clearTimeout(timer);
+      throw e;
+    });
+  }
+
   async function test() {
     try {
-      var resp = await fetch(RAW_URL + '?t=' + Date.now());
+      var resp = await _fetchWithTimeout(RAW_URL + '?t=' + Date.now(), null, 8000);
       return resp.ok || resp.status === 404;
     } catch(e) { return false; }
   }
 
   // ---- Fetch from GitHub (raw CDN) ----
-  async function fetch() {
+  async function fetchData() {
     try {
-      var resp = await fetch(RAW_URL + '?t=' + Date.now());
+      var resp = await _fetchWithTimeout(RAW_URL + '?t=' + Date.now(), null, 10000);
       if (!resp.ok) return null;
       var data = await resp.json();
       return {
@@ -59,86 +80,137 @@ const CloudSync = (() => {
     }
   }
 
-  // ---- Push to GitHub (API) ----
+  // ---- Push to GitHub (API) with retry ----
   async function push(data) {
-    if (_syncInProgress) return false;
-    _syncInProgress = true;
-
-    try {
-      // Get latest SHA if we don't have it
-      if (!_sha) {
-        var shaResp = await fetch(API_URL, {
-          headers: { 'Authorization': 'Bearer ' + TOKEN }
-        });
-        if (shaResp.ok) {
-          var info = await shaResp.json();
-          _saveSha(info.sha);
-        }
-      }
-
-      // Encode payload
-      var payload = JSON.stringify(data);
-      var content = btoa(unescape(encodeURIComponent(payload)));
-
-      var body = { message: 'sync', content: content };
-      if (_sha) body.sha = _sha;
-
-      var resp = await fetch(API_URL, {
-        method: 'PUT',
-        headers: {
-          'Authorization': 'Bearer ' + TOKEN,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (resp.ok) {
-        var result = await resp.json();
-        _saveSha(result.content.sha);
-        _syncInProgress = false;
-        return true;
-      }
-
-      // SHA conflict — refetch and retry once
-      if (resp.status === 422) {
-        _saveSha(null);
-        var retryResp = await fetch(API_URL, {
-          headers: { 'Authorization': 'Bearer ' + TOKEN }
-        });
-        if (retryResp.ok) {
-          var retryInfo = await retryResp.json();
-          _saveSha(retryInfo.sha);
-          body.sha = _sha;
-          var putResp = await fetch(API_URL, {
-            method: 'PUT',
-            headers: {
-              'Authorization': 'Bearer ' + TOKEN,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(body),
-          });
-          if (putResp.ok) {
-            var putResult = await putResp.json();
-            _saveSha(putResult.content.sha);
-            _syncInProgress = false;
-            return true;
-          }
-        }
-      }
-
-      _syncInProgress = false;
-      console.error('CloudSync push failed:', resp.status);
-      return false;
-    } catch(e) {
-      _syncInProgress = false;
-      console.error('CloudSync push failed:', e.message);
+    if (_syncInProgress) {
+      console.log('☁️ Sync already in progress, skipping');
       return false;
     }
+    _syncInProgress = true;
+    _lastSyncAttempt = Date.now();
+
+    var result = await _pushWithRetry(data);
+
+    _syncInProgress = false;
+    return result;
+  }
+
+  async function _pushWithRetry(data) {
+    var lastError = null;
+
+    for (var attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        console.log('☁️ Retry attempt ' + (attempt + 1) + '/' + MAX_RETRIES + '...');
+        await _sleep(RETRY_DELAYS[attempt] || 2000);
+      }
+
+      try {
+        // Get latest SHA if we don't have it
+        if (!_sha) {
+          var shaResp = await _fetchWithTimeout(API_URL, {
+            headers: { 'Authorization': 'Bearer ' + TOKEN }
+          }, 8000);
+
+          if (shaResp.ok) {
+            var info = await shaResp.json();
+            _saveSha(info.sha);
+          } else if (shaResp.status === 404) {
+            // File doesn't exist yet — that's OK for first push
+            _saveSha(null);
+          } else {
+            lastError = 'SHA fetch: HTTP ' + shaResp.status;
+            continue; // retry
+          }
+        }
+
+        // Encode payload
+        var payload = JSON.stringify(data);
+        // Use TextEncoder for proper UTF-8 → base64 (available in all modern browsers)
+        var encoder = new TextEncoder();
+        var bytes = encoder.encode(payload);
+        var content = _bytesToBase64(bytes);
+
+        var body = { message: 'sync', content: content };
+        if (_sha) body.sha = _sha;
+
+        var resp = await _fetchWithTimeout(API_URL, {
+          method: 'PUT',
+          headers: {
+            'Authorization': 'Bearer ' + TOKEN,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        }, FETCH_TIMEOUT);
+
+        if (resp.ok) {
+          var result = await resp.json();
+          _saveSha(result.content.sha);
+          console.log('☁️ Push OK ✓');
+          return true;
+        }
+
+        // SHA conflict — refetch SHA and retry inside this attempt
+        if (resp.status === 422) {
+          _saveSha(null);
+          // Refetch SHA
+          var retryResp = await _fetchWithTimeout(API_URL, {
+            headers: { 'Authorization': 'Bearer ' + TOKEN }
+          }, 8000);
+
+          if (retryResp.ok) {
+            var retryInfo = await retryResp.json();
+            _saveSha(retryInfo.sha);
+            body.sha = _sha;
+
+            var putResp = await _fetchWithTimeout(API_URL, {
+              method: 'PUT',
+              headers: {
+                'Authorization': 'Bearer ' + TOKEN,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(body),
+            }, FETCH_TIMEOUT);
+
+            if (putResp.ok) {
+              var putResult = await putResp.json();
+              _saveSha(putResult.content.sha);
+              console.log('☁️ Push OK (after SHA fix) ✓');
+              return true;
+            }
+            lastError = 'SHA-conflict retry: HTTP ' + putResp.status;
+          } else {
+            lastError = 'SHA refetch failed: HTTP ' + retryResp.status;
+          }
+        } else {
+          lastError = 'PUT failed: HTTP ' + resp.status;
+        }
+      } catch(e) {
+        lastError = e.message || 'Network error';
+        console.error('☁️ Push attempt ' + (attempt + 1) + ' failed:', lastError);
+      }
+    }
+
+    console.error('☁️ Push FAILED after ' + MAX_RETRIES + ' attempts: ' + lastError);
+    return false;
   }
 
   function isSyncing() { return _syncInProgress; }
 
-  // ---- Smart Merge (same as before) ----
+  function _sleep(ms) {
+    return new Promise(function(resolve) { setTimeout(resolve, ms); });
+  }
+
+  // ---- Base64 encode from byte array (replaces deprecated unescape) ----
+  function _bytesToBase64(bytes) {
+    var bin = '';
+    var len = bytes.length;
+    for (var i = 0; i < len; i++) {
+      bin += String.fromCharCode(bytes[i]);
+    }
+    return btoa(bin);
+  }
+
+  // ---- Smart Merge ----
   function smartMerge(localPlaces, cloudPlaces, localDeleted, cloudDeleted) {
     var merged = {};
     var warnings = [];
@@ -174,5 +246,5 @@ const CloudSync = (() => {
   // Dummy — kept for API compatibility with storage.js
   function configure() { return true; }
 
-  return { test, fetch, push, isConfigured, configure, getConfig, isSyncing, smartMerge };
+  return { test, fetch: fetchData, push, isConfigured, configure, getConfig, isSyncing, smartMerge };
 })();
