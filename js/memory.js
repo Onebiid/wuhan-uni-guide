@@ -37,7 +37,7 @@ const Memory = (() => {
     clearTimeout(closingTimer);
 
     dom.photo.style.opacity = '0';
-    dom.photo.src = place.photo;
+    dom.photo.src = (place.photos && place.photos.length > 0) ? place.photos[0] : '';
     dom.photo.onload = () => {
       dom.photo.style.opacity = '1';
     };
