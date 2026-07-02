@@ -1,5 +1,5 @@
 // Service Worker for 武大生活地图 PWA
-const CACHE_NAME = 'whu-guide-v3';
+const CACHE_NAME = 'whu-guide-v4';
 
 const ASSETS = [
   '/wuhan-uni-guide/',
@@ -15,6 +15,8 @@ const ASSETS = [
   '/wuhan-uni-guide/js/memory.js',
   '/wuhan-uni-guide/js/love-counter.js',
   '/wuhan-uni-guide/js/surprise.js',
+  '/wuhan-uni-guide/js/music-player.js',
+  '/wuhan-uni-guide/js/cloud-sync.js',
   '/wuhan-uni-guide/data/places.json',
   '/wuhan-uni-guide/manifest.json',
   '/wuhan-uni-guide/icon-192.png',
