@@ -145,13 +145,11 @@
       <label for="modal-note">备注</label>
       <textarea id="modal-note" placeholder="推荐理由、必点菜品、人均价格..." rows="3" maxlength="200"></textarea>
 
-      <label for="modal-photo">📷 照片（可选）</label>
+      <label for="modal-photo">📷 照片（可选，最多9张）</label>
       <div class="modal-photo-area">
-        <input type="file" id="modal-photo" accept="image/*" />
-        <div id="modal-photo-preview" class="hidden">
-          <img id="modal-photo-preview-img" src="" alt="预览" />
-          <button id="modal-photo-remove" type="button" class="photo-remove-btn" title="移除照片">&times;</button>
-        </div>
+        <input type="file" id="modal-photo" accept="image/*" multiple />
+        <div id="modal-photo-preview" class="photo-preview-strip hidden"></div>
+        <div id="modal-photo-count" class="photo-count-hint hidden">已选 0/9 张</div>
       </div>
 
       <div class="modal-coords">
@@ -171,7 +169,14 @@
     <div id="detail-content">
       <h3 id="detail-name"></h3>
       <span id="detail-type-badge" class="type-badge"></span>
-      <img id="detail-photo" class="detail-photo hidden" src="" alt="" />
+      <div id="detail-photo-carousel" class="photo-carousel hidden">
+        <div class="photo-carousel-viewport">
+          <div class="photo-carousel-track" id="carousel-track"></div>
+        </div>
+        <button id="carousel-prev" class="carousel-nav carousel-prev" aria-label="上一张">&lsaquo;</button>
+        <button id="carousel-next" class="carousel-nav carousel-next" aria-label="下一张">&rsaquo;</button>
+        <div class="photo-carousel-dots" id="carousel-dots"></div>
+      </div>
       <p id="detail-note"></p>
       <div id="detail-actions">
         <button id="detail-photo-edit" class="btn-photo-edit hidden">📷 添加照片</button>
