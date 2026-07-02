@@ -1,4 +1,4 @@
-// Service Worker for 姝﹀ぇ鐢熸椿鍦板浘 PWA
+// Service Worker for 武大生活地图 PWA
 const CACHE_NAME = 'whu-guide-v3';
 
 const ASSETS = [
