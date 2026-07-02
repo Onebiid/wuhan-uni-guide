@@ -210,7 +210,7 @@ const MapModule = (() => {
 
         map.flyTo(display, 17, { duration: 0.6 });
 
-        if (place.photo) {
+        if (place.photos && place.photos.length > 0) {
           Memory.show(place, function () {
             UI.showDetail(place, true);
           });
@@ -421,8 +421,14 @@ const MapModule = (() => {
     var icon = meta ? meta.icon : '📌';
     html += '<strong>' + icon + ' ' + _esc(place.name) + '</strong>';
     html += '<span style="display:inline-block;background:' + (meta ? meta.color : '#8c8c8c') + ';color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">' + (meta ? meta.label : '') + '</span>';
-    if (place.photo) {
-      html += '<img src="' + place.photo + '" style="display:block;width:100%;max-height:120px;object-fit:cover;border-radius:8px;margin-top:8px;" alt="" />';
+    var photos = place.photos || [];
+    if (photos.length > 0) {
+      html += '<div style="position:relative;display:block;margin-top:8px;">';
+      html += '<img src="' + photos[0] + '" style="display:block;width:100%;max-height:120px;object-fit:cover;border-radius:8px;" alt="" />';
+      if (photos.length > 1) {
+        html += '<span style="position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.55);color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;">📷 +' + (photos.length - 1) + '</span>';
+      }
+      html += '</div>';
     }
     if (place.note) {
       html += '<p style="margin:6px 0 0;font-size:12px;color:#7a6652;">' + _esc(place.note) + '</p>';
