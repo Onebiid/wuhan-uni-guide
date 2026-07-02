@@ -1481,41 +1481,38 @@ button, .cat-btn, .search-result-item {
    MUSIC PLAYER
    ========================================== */
 
-/* Floating toggle button */
+/* Toggle button — inside top bar */
 #btn-music {
-  position: fixed;
-  right: 14px;
-  bottom: calc(var(--fab-bottom) + var(--safe-bottom) + 200px);
-  z-index: 1000;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: none;
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow-lg);
+  background: rgba(255,255,255,0.45);
   cursor: pointer;
-  font-size: 20px;
+  font-size: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all var(--transition);
   color: var(--text-secondary);
+  flex-shrink: 0;
+  margin-left: 4px;
 }
 #btn-music.active {
   background: var(--primary);
   color: #fff;
-  box-shadow: 0 0 16px rgba(194,119,106,0.30);
+  box-shadow: 0 0 12px rgba(194,119,106,0.25);
 }
 
-/* Mini player panel */
+/* Mini player panel — below top bar */
 #music-player {
   position: fixed;
-  bottom: calc(var(--fab-bottom) + var(--safe-bottom) + 100px);
+  top: calc(var(--top-bar-h) + var(--safe-top) + 6px);
   left: 12px;
-  right: 70px;
+  right: 12px;
   z-index: 999;
+  max-width: 400px;
+  margin: 0 auto;
   background: var(--glass-bg-strong);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -1910,14 +1907,13 @@ button, .cat-btn, .search-result-item {
 /* Mobile adjustments */
 @media (max-width: 639px) {
   #btn-music {
-    right: 8px;
-    bottom: 190px;
-    width: 42px;
-    height: 42px;
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
   }
   #music-player {
     left: 6px;
-    right: 58px;
-    bottom: 110px;
+    right: 6px;
+    top: calc(var(--top-bar-h) + var(--safe-top) + 4px);
   }
 }
