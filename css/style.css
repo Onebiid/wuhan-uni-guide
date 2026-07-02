@@ -1,5 +1,5 @@
 /* ============================================
-   武大美食生活地图 — Style
+   姝﹀ぇ缇庨鐢熸椿鍦板浘 鈥?Style
    Mobile-first, soft & refined palette
    ============================================ */
 
@@ -22,7 +22,7 @@
   --radius-xl: 28px;
   --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Muted category colors — low saturation, high refinement */
+  /* Muted category colors 鈥?low saturation, high refinement */
   --food: #c2776a;
   --shopping: #7a9db5;
   --service: #7a9e7e;
@@ -68,7 +68,7 @@ html, body {
 }
 
 /* ============================================
-   MAP MARKERS — Soft refined dots (divIcon)
+   MAP MARKERS 鈥?Soft refined dots (divIcon)
    ============================================ */
 
 /* Override Leaflet icon defaults to ensure roundness */
@@ -100,7 +100,7 @@ html, body {
   overflow: hidden;
 }
 
-/* Glossy highlight — glass bead reflection */
+/* Glossy highlight 鈥?glass bead reflection */
 .marker-dot::before {
   content: '';
   position: absolute;
@@ -114,7 +114,7 @@ html, body {
   pointer-events: none;
 }
 
-/* Category gradients — muted, low-saturation, refined */
+/* Category gradients 鈥?muted, low-saturation, refined */
 .map-marker.food .marker-dot           { background: linear-gradient(135deg, #c2776a, #d4a099); }
 .map-marker.shopping .marker-dot       { background: linear-gradient(135deg, #7a9db5, #96b5c9); }
 .map-marker.service .marker-dot        { background: linear-gradient(135deg, #7a9e7e, #96b5a0); }
@@ -400,7 +400,7 @@ html, body {
   margin: 4px auto;
 }
 
-/* ---- Special "我们" button — more prominent ---- */
+/* ---- Special "鎴戜滑" button 鈥?more prominent ---- */
 .cat-btn-special {
   padding: 2px 6px;
   border: 1.5px solid rgba(196,139,138,0.30);
@@ -522,38 +522,6 @@ button, .cat-btn, .search-result-item {
 #btn-edit-place {
   background: #7a6b9e;
   color: white;
-}
-
-/* ----- Legend ----- */
-#legend {
-  position: absolute;
-  bottom: 100px;
-  left: 10px;
-  z-index: 1001;
-  background: var(--glass-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
-  box-shadow: var(--glass-shadow-sm);
-  border: var(--glass-border);
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  font-size: 11px;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
 }
 
 /* ----- FAB Group ----- */
@@ -700,7 +668,7 @@ button, .cat-btn, .search-result-item {
   background: rgba(255,255,255,0.35);
 }
 
-/* Old modal single-photo preview — now replaced by .photo-preview-strip */
+/* Old modal single-photo preview 鈥?now replaced by .photo-preview-strip */
 
 .photo-remove-btn {
   position: absolute;
@@ -1069,13 +1037,6 @@ button, .cat-btn, .search-result-item {
   .cat-icon { font-size: 16px; }
   .cat-label { font-size: 11px; }
 
-  #legend {
-    bottom: 90px;
-    left: 4px;
-    font-size: 10px;
-    padding: 6px 8px;
-  }
-
   #fab-group {
     right: 8px;
     bottom: 20px;
@@ -1126,7 +1087,7 @@ button, .cat-btn, .search-result-item {
 }
 
 /* ============================================
-   MEMORY OVERLAY — Fullscreen photo surprise
+   MEMORY OVERLAY 鈥?Fullscreen photo surprise
    ============================================ */
 
 #memory-overlay {
@@ -1311,7 +1272,7 @@ button, .cat-btn, .search-result-item {
 }
 
 /* ============================================
-   LOVE COUNTER — Bottom bar
+   LOVE COUNTER 鈥?Bottom bar
    ============================================ */
 
 #love-counter {
@@ -1358,7 +1319,7 @@ button, .cat-btn, .search-result-item {
 }
 
 /* ============================================
-   SURPRISE — Petal rain & love card
+   SURPRISE 鈥?Petal rain & love card
    ============================================ */
 
 #petal-storm {
