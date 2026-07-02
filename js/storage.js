@@ -307,6 +307,12 @@ const Storage = (() => {
   }
 
   function _cloudPush() {
+    // Skip if already syncing — avoid false failures
+    if (CloudSync.isSyncing()) {
+      console.log("☁️ Sync already in progress, will retry after completion");
+      _scheduleCloudSync(); // reschedule for later
+      return;
+    }
     var musicData = _getMusicData();
     var data = {
       userPlaces: userPlaces,
