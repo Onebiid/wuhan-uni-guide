@@ -14,6 +14,7 @@ const UI = (() => {
     dom.addBtn        = document.getElementById('btn-add-place');
     dom.editBtn       = document.getElementById('btn-edit-place');
     dom.exportBtn     = document.getElementById('btn-export');
+    dom.importBtn     = document.getElementById('btn-import');
     dom.reloadMapBtn  = document.getElementById('btn-reload-map');
     dom.myLocBtn      = document.getElementById('btn-my-location');
     dom.modalOverlay  = document.getElementById('modal-overlay');
@@ -196,6 +197,29 @@ const UI = (() => {
       a.click();
       URL.revokeObjectURL(url);
       showToast('✅ 数据已导出下载');
+    });
+
+    // Import button
+    dom.importBtn.addEventListener('click', () => {
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.onchange = function() {
+        var file = input.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            var count = Storage.importData(e.target.result);
+            showToast('✅ 已导入 ' + count + ' 个地点，刷新页面...');
+            setTimeout(function() { window.location.reload(); }, 1200);
+          } catch (err) {
+            showToast('❌ 导入失败：文件格式错误');
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
     });
 
     // My location button
