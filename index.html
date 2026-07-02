@@ -105,6 +105,9 @@
     <button id="btn-edit-place" title="编辑地点">
       <span>✎</span>
     </button>
+    <button id="btn-sync-now" title="同步到云端">
+      <span>☁️</span>
+    </button>
     <button id="btn-reload-map" title="刷新地图瓦片">
       <span>↻</span>
     </button>
@@ -203,6 +206,67 @@
     <span id="love-counter-text">我们在一起已经 ...</span>
   </div>
 
+  <!-- ====== Music Player ====== -->
+  <button id="btn-music" title="音乐播放器">🎵</button>
+  <div id="music-player" class="hidden">
+    <div class="player-top">
+      <span id="player-song-title" class="player-song-title">未选择歌曲</span>
+      <div id="player-time" class="player-time">--:-- / --:--</div>
+    </div>
+    <input type="range" id="player-progress" class="player-progress" min="0" max="100" value="0" />
+    <div class="player-controls">
+      <button id="player-prev" title="上一首">⏮</button>
+      <button id="player-play" title="播放/暂停">▶️</button>
+      <button id="player-next" title="下一首">⏭</button>
+      <button id="player-playlist-btn" title="播放列表">📋</button>
+      <div class="player-volume-wrap">
+        <span>🔊</span>
+        <input type="range" id="player-volume" class="player-volume" min="0" max="100" value="50" />
+      </div>
+    </div>
+    <!-- Playlist panel -->
+    <div id="playlist-panel" class="hidden">
+      <div class="playlist-add">
+        <input type="text" id="add-song-url" placeholder="歌曲 URL (网易云/QQ音乐外链)" />
+        <input type="text" id="add-song-title" placeholder="歌名" />
+        <button id="add-song-btn">+ 添加</button>
+      </div>
+      <div class="playlist-add-local">
+        <button id="add-local-file-btn">📁 上传本地音乐</button>
+        <input type="file" id="local-file-input" class="hidden" accept="audio/*,.mp3,.wav,.ogg,.flac,.aac,.m4a" multiple />
+      </div>
+      <div id="playlist-list" class="playlist-list"></div>
+    </div>
+  </div>
+
+  <!-- ====== Cloud Sync Settings Panel ====== -->
+  <div id="cloud-settings-overlay" class="hidden">
+    <div id="cloud-settings-panel">
+      <div class="cloud-settings-header">
+        <h3>☁️ 云同步设置</h3>
+        <button id="cloud-settings-close">&times;</button>
+      </div>
+      <p class="cloud-settings-hint">
+        使用 <a href="https://leancloud.cn" target="_blank">LeanCloud</a> 作为云存储后端，无需 VPN。<br>
+        注册后在「设置 → App Keys」中获取密钥。
+      </p>
+      <label for="cloud-app-id">App ID</label>
+      <input type="text" id="cloud-app-id" placeholder="粘贴你的 LeanCloud App ID..." />
+      <label for="cloud-app-key">App Key</label>
+      <input type="password" id="cloud-app-key" placeholder="粘贴你的 LeanCloud App Key..." />
+      <label for="cloud-region">区域</label>
+      <select id="cloud-region">
+        <option value="lc-cn-n1-shared">华北 (lc-cn-n1-shared)</option>
+        <option value="lc-cn-e1-shared">华东 (lc-cn-e1-shared)</option>
+      </select>
+      <div class="cloud-settings-buttons">
+        <button id="cloud-settings-test" class="btn-secondary">🔍 测试连接</button>
+        <button id="cloud-settings-save" class="btn-primary">💾 保存设置</button>
+      </div>
+      <div id="cloud-status" class="cloud-status"></div>
+    </div>
+  </div>
+
   <!-- ====== Surprise (anniversary easter egg) ====== -->
   <div id="petal-storm" class="hidden"></div>
   <div id="surprise-card" class="hidden">
@@ -219,6 +283,7 @@
   <!-- ====== Scripts ====== -->
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
+  <script src="js/cloud-sync.js"></script>
   <script src="js/image-utils.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/routing.js"></script>
@@ -227,6 +292,7 @@
   <script src="js/memory.js"></script>
   <script src="js/love-counter.js"></script>
   <script src="js/surprise.js"></script>
+  <script src="js/music-player.js"></script>
   <script src="js/map.js"></script>
   <script src="js/app.js"></script>
 
