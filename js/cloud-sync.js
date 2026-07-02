@@ -16,6 +16,7 @@ const CloudSync = (() => {
   const API_URL = 'https://api.github.com' + API_PATH;
 
   const PROXY_STORAGE_KEY = 'whu_sync_proxy_url';
+  const DEFAULT_PROXY_URL = 'https://whu-sync-proxy.whu-sync.workers.dev';
 
   const MAX_RETRIES = 3;
   const RETRY_DELAYS = [1000, 3000, 6000];
@@ -30,10 +31,10 @@ const CloudSync = (() => {
     _sha = localStorage.getItem('whu_cloud_sha') || null;
   } catch(e) { _sha = null; }
 
-  // Restore proxy URL from localStorage
+  // Restore proxy URL from localStorage — fall back to default Worker URL
   try {
-    _proxyUrl = localStorage.getItem(PROXY_STORAGE_KEY) || null;
-  } catch(e) { _proxyUrl = null; }
+    _proxyUrl = localStorage.getItem(PROXY_STORAGE_KEY) || DEFAULT_PROXY_URL;
+  } catch(e) { _proxyUrl = DEFAULT_PROXY_URL; }
 
   function _saveSha(sha) {
     _sha = sha;
