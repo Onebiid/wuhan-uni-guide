@@ -1449,3 +1449,448 @@ button, .cat-btn, .search-result-item {
   background: #d5c4b5;
   border-radius: 4px;
 }
+
+/* ==========================================
+   MUSIC PLAYER
+   ========================================== */
+
+/* Floating toggle button */
+#btn-music {
+  position: fixed;
+  right: 14px;
+  bottom: calc(var(--fab-bottom) + var(--safe-bottom) + 200px);
+  z-index: 1000;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  color: var(--text-secondary);
+}
+#btn-music.active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 0 16px rgba(194,119,106,0.30);
+}
+
+/* Mini player panel */
+#music-player {
+  position: fixed;
+  bottom: calc(var(--fab-bottom) + var(--safe-bottom) + 100px);
+  left: 12px;
+  right: 70px;
+  z-index: 999;
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  box-shadow: var(--glass-shadow-lg);
+  border: var(--glass-border);
+  animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.player-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.player-song-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
+}
+
+.player-time {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Progress bar */
+.player-progress {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(0,0,0,0.08);
+  border-radius: 2px;
+  outline: none;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.player-progress::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+
+/* Controls */
+.player-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.player-controls button {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.5);
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+}\n.player-controls button:active { transform: scale(0.9); }
+
+#player-play {
+  width: 44px;
+  height: 44px;
+  font-size: 20px;
+  background: var(--primary) !important;
+  color: #fff;
+}
+
+.player-volume-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.player-volume {
+  width: 60px;
+  height: 3px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(0,0,0,0.10);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.player-volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+}
+
+/* Playlist panel */
+#playlist-panel {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.playlist-add {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.playlist-add input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  font-family: inherit;
+  background: rgba(255,255,255,0.4);
+  color: var(--text);
+  outline: none;
+}
+.playlist-add input:focus { border-color: var(--primary); }
+#add-song-title { max-width: 80px; flex: 0.5; }
+#add-song-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.playlist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.playlist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background var(--transition);
+  font-size: 13px;
+}
+.playlist-item:hover,
+.playlist-item.active {
+  background: var(--primary-light);
+}
+.playlist-item.active .playlist-item-title {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.playlist-item-num {
+  font-size: 11px;
+  color: var(--text-secondary);
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.playlist-item-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.playlist-item-del {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.playlist-item-del:hover { color: var(--primary); }
+
+/* Local file upload button in playlist */
+.playlist-add-local {
+  margin-bottom: 8px;
+}
+
+.playlist-add-local button {
+  width: 100%;
+  padding: 8px;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.35);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.playlist-add-local button:active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
+/* Sync now button */
+#btn-sync-now {
+  background: #5b9bd5;
+  color: #fff;
+}
+
+#btn-sync-now:active {
+  background: #4a89c0;
+}
+
+@keyframes sync-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+#btn-sync-now.syncing span {
+  display: inline-block;
+  animation: sync-spin 1s linear infinite;
+}
+
+/* ==========================================
+   CLOUD SYNC SETTINGS PANEL
+   ========================================== */
+
+#cloud-settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  background: rgba(30, 10, 5, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+
+#cloud-settings-panel {
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-xl);
+  width: 90%;
+  max-width: 400px;
+  padding: 24px 20px;
+  box-shadow: var(--glass-shadow-lg);
+  border: var(--glass-border);
+  animation: slideUpDesktop 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.cloud-settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cloud-settings-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.cloud-settings-header button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.06);
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cloud-settings-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.cloud-settings-hint a {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+#cloud-settings-panel label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  margin-top: 10px;
+}
+
+#cloud-settings-panel input,
+#cloud-settings-panel select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-family: inherit;
+  background: rgba(255,255,255,0.45);
+  color: var(--text);
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+#cloud-settings-panel input:focus,
+#cloud-settings-panel select:focus {
+  border-color: var(--primary);
+}
+
+.cloud-settings-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.cloud-settings-buttons button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 22px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.cloud-status {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  min-height: 20px;
+}
+
+.cloud-status.success {
+  background: rgba(122, 158, 126, 0.12);
+  color: var(--service);
+}
+
+.cloud-status.error {
+  background: rgba(194, 119, 106, 0.12);
+  color: var(--primary);
+}
+
+.cloud-status.testing {
+  background: rgba(91, 155, 213, 0.10);
+  color: #5b9bd5;
+}
+
+/* Mobile adjustments */
+@media (max-width: 639px) {
+  #btn-music {
+    right: 8px;
+    bottom: 190px;
+    width: 42px;
+    height: 42px;
+  }
+  #music-player {
+    left: 6px;
+    right: 58px;
+    bottom: 110px;
+  }
+}
