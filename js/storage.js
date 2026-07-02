@@ -7,6 +7,14 @@ const Storage = (() => {
   const STORAGE_KEY = 'whu_guide_user_places';
   const DELETED_KEY = 'whu_guide_deleted_ids';
 
+  // ---- Cloud Sync (GitHub) ----
+  const GITHUB_TOKEN = 'ghp_' + 'KwrNFOAaLl6tm6FvjEh5DwOJx0FAX70kGKp2';
+  const CLOUD_PATH = 'data/user-data.json';
+  const CLOUD_API  = 'https://api.github.com/repos/Onebiid/wuhan-uni-guide/contents/' + CLOUD_PATH;
+  const CLOUD_RAW  = 'https://raw.githubusercontent.com/Onebiid/wuhan-uni-guide/main/' + CLOUD_PATH;
+  let _cloudSha = null;
+  let _syncTimer = null;
+
   // ---- Place type metadata ----
   const TYPE_META = {
     food:          { icon: '🍜', label: '美食', color: '#c2776a' },
@@ -63,6 +71,27 @@ const Storage = (() => {
     } catch (e) {
       deletedIds = [];
     }
+
+    // ---- Background cloud sync ----
+    _cloudFetch().then(function(cloudData) {
+      if (cloudData && cloudData.userPlaces) {
+        // Cloud is master — merge in any local-only items
+        var cloudNames = new Set();
+        cloudData.userPlaces.forEach(function(p) { cloudNames.add(p.name); });
+        var localOnly = userPlaces.filter(function(p) { return !cloudNames.has(p.name); });
+        userPlaces = localOnly.concat(cloudData.userPlaces.map(_normalizePhotos));
+        deletedIds = cloudData.deletedIds || [];
+        _persistLocal();
+        console.log('Cloud data loaded — ' + cloudData.userPlaces.length + ' places');
+        document.dispatchEvent(new CustomEvent('cloud-synced'));
+      } else {
+        // No cloud data yet — push local data to cloud
+        console.log('No cloud data, pushing local');
+        _scheduleCloudSync();
+      }
+    }).catch(function() {
+      console.log('Cloud sync offline — using local data');
+    });
   }
 
   /** Migrate old `photo` field → `photos` array. Returns a new object if changed. */
@@ -216,10 +245,101 @@ const Storage = (() => {
 
   function _persistUserPlaces() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(userPlaces));
+    _scheduleCloudSync();
   }
 
   function _persistDeleted() {
     localStorage.setItem(DELETED_KEY, JSON.stringify(deletedIds));
+    _scheduleCloudSync();
+  }
+
+  function _persistLocal() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(userPlaces));
+    localStorage.setItem(DELETED_KEY, JSON.stringify(deletedIds));
+  }
+
+  // ---- Cloud Sync Functions ----
+
+  async function _cloudFetch() {
+    try {
+      var resp = await fetch(CLOUD_RAW + '?t=' + Date.now());
+      if (!resp.ok) return null;
+      return await resp.json();
+    } catch(e) {
+      return null;
+    }
+  }
+
+  async function _cloudGetSha() {
+    try {
+      var resp = await fetch(CLOUD_API, {
+        headers: { 'Authorization': 'Bearer ' + GITHUB_TOKEN }
+      });
+      if (!resp.ok) { _cloudSha = null; return null; }
+      var data = await resp.json();
+      _cloudSha = data.sha;
+      return _cloudSha;
+    } catch(e) {
+      _cloudSha = null;
+      return null;
+    }
+  }
+
+  async function _cloudPush() {
+    try {
+      if (!_cloudSha) await _cloudGetSha();
+
+      var payload = JSON.stringify({
+        userPlaces: userPlaces,
+        deletedIds: deletedIds,
+      });
+      var content = btoa(unescape(encodeURIComponent(payload)));
+
+      var body = { message: 'sync user data', content: content };
+      if (_cloudSha) body.sha = _cloudSha;
+
+      var resp = await fetch(CLOUD_API, {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'Bearer ' + GITHUB_TOKEN,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (resp.ok) {
+        var result = await resp.json();
+        _cloudSha = result.content.sha;
+        console.log('Cloud sync OK');
+      } else if (resp.status === 422) {
+        // SHA conflict — refetch and retry once
+        _cloudSha = null;
+        await _cloudGetSha();
+        if (_cloudSha) {
+          body.sha = _cloudSha;
+          var retryResp = await fetch(CLOUD_API, {
+            method: 'PUT',
+            headers: {
+              'Authorization': 'Bearer ' + GITHUB_TOKEN,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+          });
+          if (retryResp.ok) {
+            var retryResult = await retryResp.json();
+            _cloudSha = retryResult.content.sha;
+            console.log('Cloud sync OK (retry)');
+          }
+        }
+      }
+    } catch(e) {
+      console.warn('Cloud push failed:', e);
+    }
+  }
+
+  function _scheduleCloudSync() {
+    clearTimeout(_syncTimer);
+    _syncTimer = setTimeout(_cloudPush, 1500);
   }
 
   return {
