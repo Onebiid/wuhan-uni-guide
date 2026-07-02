@@ -14,6 +14,7 @@ const Storage = (() => {
     service:       { icon: '🏪', label: '生活服务', color: '#7a9e7e' },
     study:         { icon: '📚', label: '学习', color: '#8b7a9e' },
     entertainment: { icon: '🎮', label: '娱乐', color: '#c49b6e' },
+    memory:        { icon: '🎓', label: '我们', color: '#c48b8a' },
     other:         { icon: '📌', label: '其他', color: '#8c8c8c' },
   };
 
