@@ -6,6 +6,7 @@
 const Storage = (() => {
   const STORAGE_KEY = 'whu_guide_user_places';
   const DELETED_KEY = 'whu_guide_deleted_ids';
+  const MODIFIED_KEY = 'whu_guide_last_modified';
 
   // ---- Cloud Sync (GitHub) ----
   const GITHUB_TOKEN = 'ghp_' + 'KwrNFOAaLl6tm6FvjEh5DwOJx0FAX70kGKp2';
@@ -73,24 +74,32 @@ const Storage = (() => {
     }
 
     // ---- Background cloud sync ----
+    var localModified = parseInt(localStorage.getItem(MODIFIED_KEY) || '0', 10);
     _cloudFetch().then(function(cloudData) {
       if (cloudData && cloudData.userPlaces) {
-        // Cloud is master — merge in any local-only items
-        var cloudNames = new Set();
-        cloudData.userPlaces.forEach(function(p) { cloudNames.add(p.name); });
-        var localOnly = userPlaces.filter(function(p) { return !cloudNames.has(p.name); });
-        userPlaces = localOnly.concat(cloudData.userPlaces.map(_normalizePhotos));
-        deletedIds = cloudData.deletedIds || [];
-        _persistLocal();
-        console.log('Cloud data loaded — ' + cloudData.userPlaces.length + ' places');
-        document.dispatchEvent(new CustomEvent('cloud-synced'));
+        var cloudModified = cloudData.lastModified || 0;
+        if (cloudModified > localModified) {
+          // Cloud is newer — download and use it
+          userPlaces = cloudData.userPlaces.map(_normalizePhotos);
+          deletedIds = cloudData.deletedIds || [];
+          _persistLocal();
+          console.log('☁️ Cloud → local (' + userPlaces.length + ' places)');
+          document.dispatchEvent(new CustomEvent('cloud-synced'));
+        } else if (localModified > cloudModified) {
+          // Local is newer — push to cloud
+          console.log('☁️ Local → cloud (' + userPlaces.length + ' places)');
+          _scheduleCloudSync();
+        } else {
+          console.log('☁️ In sync (' + userPlaces.length + ' places)');
+        }
       } else {
-        // No cloud data yet — push local data to cloud
-        console.log('No cloud data, pushing local');
+        // No cloud data yet — push local to create it
+        console.log('☁️ Creating cloud data...');
+        _bumpTimestamp();
         _scheduleCloudSync();
       }
-    }).catch(function() {
-      console.log('Cloud sync offline — using local data');
+    }).catch(function(e) {
+      console.warn('☁️ Cloud offline, using local data', e);
     });
   }
 
@@ -243,13 +252,19 @@ const Storage = (() => {
     }
   }
 
+  function _bumpTimestamp() {
+    localStorage.setItem(MODIFIED_KEY, Date.now());
+  }
+
   function _persistUserPlaces() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(userPlaces));
+    _bumpTimestamp();
     _scheduleCloudSync();
   }
 
   function _persistDeleted() {
     localStorage.setItem(DELETED_KEY, JSON.stringify(deletedIds));
+    _bumpTimestamp();
     _scheduleCloudSync();
   }
 
@@ -292,6 +307,7 @@ const Storage = (() => {
       var payload = JSON.stringify({
         userPlaces: userPlaces,
         deletedIds: deletedIds,
+        lastModified: parseInt(localStorage.getItem(MODIFIED_KEY) || '0', 10),
       });
       var content = btoa(unescape(encodeURIComponent(payload)));
 
@@ -310,7 +326,8 @@ const Storage = (() => {
       if (resp.ok) {
         var result = await resp.json();
         _cloudSha = result.content.sha;
-        console.log('Cloud sync OK');
+        console.log('☁️ Sync OK ✓');
+        document.dispatchEvent(new CustomEvent('sync-success'));
       } else if (resp.status === 422) {
         // SHA conflict — refetch and retry once
         _cloudSha = null;
@@ -328,12 +345,22 @@ const Storage = (() => {
           if (retryResp.ok) {
             var retryResult = await retryResp.json();
             _cloudSha = retryResult.content.sha;
-            console.log('Cloud sync OK (retry)');
+            console.log('☁️ Sync OK ✓ (retry)');
+            document.dispatchEvent(new CustomEvent('sync-success'));
+          } else {
+            console.error('☁️ Sync FAIL:', retryResp.status, retryResp.statusText);
+            document.dispatchEvent(new CustomEvent('sync-failed'));
           }
+        } else {
+          document.dispatchEvent(new CustomEvent('sync-failed'));
         }
+      } else {
+        console.error('☁️ Sync FAIL:', resp.status, resp.statusText);
+        document.dispatchEvent(new CustomEvent('sync-failed'));
       }
     } catch(e) {
-      console.warn('Cloud push failed:', e);
+      console.error('☁️ Sync FAIL (network):', e.message || e);
+      document.dispatchEvent(new CustomEvent('sync-failed'));
     }
   }
 
