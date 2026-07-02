@@ -1273,7 +1273,7 @@ button, .cat-btn, .search-result-item {
 }
 
 /* ============================================
-   LOVE COUNTER — Bottom bar
+   LOVE COUNTER — Bottom bar (dual lines)
    ============================================ */
 
 #love-counter {
@@ -1282,26 +1282,47 @@ button, .cat-btn, .search-result-item {
   left: 0;
   right: 0;
   z-index: 900;
-  padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0px));
+  padding: 6px 16px calc(6px + env(safe-area-inset-bottom, 0px));
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border-top: var(--glass-border);
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-secondary);
   letter-spacing: 0.3px;
   transition: transform 0.3s ease, opacity 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.love-counter-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1.5;
+}
+
+.love-line-together {
+  font-size: 11px;
+  opacity: 0.85;
 }
 
 #love-counter strong {
   color: var(--primary);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
 }
 
+.love-line-together strong {
+  font-size: 12px;
+  color: #d4a099;
+}
+
 .love-counter-icon {
-  margin-right: 4px;
+  margin-right: 2px;
 }
 
 #detail-panel:not(.hidden) ~ #love-counter {
@@ -1311,11 +1332,17 @@ button, .cat-btn, .search-result-item {
 
 @media (max-width: 639px) {
   #love-counter {
-    font-size: 11px;
-    padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px));
+    font-size: 10px;
+    padding: 4px 10px calc(4px + env(safe-area-inset-bottom, 0px));
   }
   #love-counter strong {
-    font-size: 13px;
+    font-size: 12px;
+  }
+  .love-line-together {
+    font-size: 9px;
+  }
+  .love-line-together strong {
+    font-size: 10px;
   }
 }
 
