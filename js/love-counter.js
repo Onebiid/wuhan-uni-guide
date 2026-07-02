@@ -4,7 +4,7 @@
    ============================================ */
 
 const LoveCounter = (() => {
-  const START_DATE = new Date('2025-08-08T13:16:00');
+  const START_DATE = new Date('2025-09-06T00:00:00');
 
   let timer = null;
   let domText = null;
@@ -32,7 +32,7 @@ const LoveCounter = (() => {
     const seconds = totalSeconds % 60;
 
     domText.innerHTML =
-      `💕 我们在一起已经 <strong>${days.toLocaleString()}</strong> 天 ` +
+      `💕 我们见面已经 <strong>${days.toLocaleString()}</strong> 天 ` +
       `${pad(hours)} 时 ${pad(minutes)} 分 ${pad(seconds)} 秒 💕`;
   }
 
