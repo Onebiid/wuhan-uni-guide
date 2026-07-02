@@ -392,6 +392,44 @@ html, body {
   color: white;
 }
 
+/* ---- Separator between functional & personal categories ---- */
+.cat-separator {
+  width: 40px;
+  height: 1px;
+  background: rgba(0,0,0,0.08);
+  margin: 4px auto;
+}
+
+/* ---- Special "我们" button — more prominent ---- */
+.cat-btn-special {
+  padding: 2px 6px;
+  border: 1.5px solid rgba(196,139,138,0.30);
+  border-radius: var(--radius);
+  background: rgba(196,139,138,0.06);
+}
+
+.cat-btn-special:hover {
+  background: rgba(196,139,138,0.12);
+}
+
+.cat-btn-special.active {
+  background: linear-gradient(135deg, rgba(196,139,138,0.18), rgba(196,139,138,0.10));
+  border-color: rgba(196,139,138,0.50);
+  box-shadow: 0 0 12px rgba(196,139,138,0.12);
+}
+
+.cat-dot-special {
+  width: 8px !important;
+  height: 8px !important;
+  box-shadow: 0 0 6px rgba(196,139,138,0.35);
+}
+
+.cat-btn-special.active .cat-dot-special {
+  transform: scale(1.4);
+  background: var(--memory) !important;
+  box-shadow: 0 0 10px rgba(196,139,138,0.50);
+}
+
 /* ----- Map ----- */
 #map-container {
   position: fixed;
