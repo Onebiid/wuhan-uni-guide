@@ -6,7 +6,7 @@
 
 const LoveCounter = (() => {
   const MEET_DATE = new Date('2025-09-06T00:00:00');    // 见面
-  const TOGETHER_DATE = new Date('2025-08-07T00:00:00'); // 在一起
+  const TOGETHER_DATE = new Date(2025, 7, 8, 13, 16, 0); // 在一起: 2025.8.8 13:16
 
   let timer = null;
   let domMeet = null;
