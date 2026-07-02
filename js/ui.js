@@ -409,15 +409,10 @@ const UI = (() => {
     dom.detailBadge.className = 'type-badge ' + place.type;
     _renderDetailPhoto(place);
     dom.detailNote.textContent = place.note || '暂无备注';
-    // Edit button: always visible
+    // All buttons always visible — every place can be edited/deleted
     dom.detailEdit.classList.remove('hidden');
-    if (deletable || place.addedBy === 'user') {
-      dom.detailDelete.classList.remove('hidden');
-      dom.detailPhotoEdit.classList.remove('hidden');
-    } else {
-      dom.detailDelete.classList.add('hidden');
-      dom.detailPhotoEdit.classList.add('hidden');
-    }
+    dom.detailDelete.classList.remove('hidden');
+    dom.detailPhotoEdit.classList.remove('hidden');
     dom.detailPanel.classList.remove('hidden');
   }
 
