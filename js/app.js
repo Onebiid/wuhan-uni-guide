@@ -107,7 +107,13 @@ const App = (() => {
       MapModule.renderMarkers(places);
       UI.updateCounts(Storage.getCounts());
       Search.updateIndex(places);
-      console.log('🔄 Synced from cloud — ' + places.length + ' places');
+      UI.showToast('☁️ 已从云端同步 ' + places.length + ' 个地点');
+    });
+
+    // 9. Cloud sync status feedback
+    document.addEventListener('sync-failed', function() {
+      console.error('❌ 云端同步失败，请检查网络');
+      UI.showToast('⚠️ 同步失败，数据仅保存在本地');
     });
 
     console.log('💕 武大生活地图已就绪！');
