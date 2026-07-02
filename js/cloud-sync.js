@@ -1,32 +1,68 @@
 /* ============================================
    cloud-sync.js — GitHub cloud sync
-   Read: raw.githubusercontent.com (CDN, good in China)
-   Write: api.github.com (may need retry in China)
+   Read:  raw.githubusercontent.com (CDN, good in China)
+   Write: Cloudflare Worker proxy → api.github.com
+
+   Proxy URL is configurable via localStorage
+   (set by user after deploying the Cloudflare Worker)
    ============================================ */
 
 const CloudSync = (() => {
   const TOKEN = 'ghp_' + 'KwrNFOAaLl6tm6FvjEh5DwOJx0FAX70kGKp2';
   const REPO = 'Onebiid/wuhan-uni-guide';
   const PATH = 'data/user-data.json';
-  const API_URL = 'https://api.github.com/repos/' + REPO + '/contents/' + PATH;
   const RAW_URL = 'https://raw.githubusercontent.com/' + REPO + '/main/' + PATH;
+  const API_PATH = '/repos/' + REPO + '/contents/' + PATH;
+  const API_URL = 'https://api.github.com' + API_PATH;
+
+  const PROXY_STORAGE_KEY = 'whu_sync_proxy_url';
 
   const MAX_RETRIES = 3;
-  const RETRY_DELAYS = [1000, 3000, 6000]; // exponential-ish backoff
-  const FETCH_TIMEOUT = 12000; // 12s per attempt
+  const RETRY_DELAYS = [1000, 3000, 6000];
+  const FETCH_TIMEOUT = 15000;
 
   let _sha = null;
   let _syncInProgress = false;
-  let _lastSyncAttempt = 0;
+  let _proxyUrl = null; // cached proxy URL
 
   // Restore SHA from localStorage
   try {
     _sha = localStorage.getItem('whu_cloud_sha') || null;
   } catch(e) { _sha = null; }
 
+  // Restore proxy URL from localStorage
+  try {
+    _proxyUrl = localStorage.getItem(PROXY_STORAGE_KEY) || null;
+  } catch(e) { _proxyUrl = null; }
+
   function _saveSha(sha) {
     _sha = sha;
     try { localStorage.setItem('whu_cloud_sha', sha); } catch(e) {}
+  }
+
+  // ---- Proxy URL management ----
+  function getProxyUrl() { return _proxyUrl; }
+
+  function setProxyUrl(url) {
+    if (url) {
+      // Normalize: remove trailing slash
+      _proxyUrl = url.replace(/\/+$/, '');
+    } else {
+      _proxyUrl = null;
+    }
+    try {
+      if (_proxyUrl) {
+        localStorage.setItem(PROXY_STORAGE_KEY, _proxyUrl);
+      } else {
+        localStorage.removeItem(PROXY_STORAGE_KEY);
+      }
+    } catch(e) {}
+    _saveSha(null); // reset SHA when proxy changes
+  }
+
+  // Returns the base URL for write API calls (proxy or direct)
+  function _writeBase() {
+    return _proxyUrl || 'https://api.github.com';
   }
 
   // Always configured — token is built in
@@ -35,14 +71,17 @@ const CloudSync = (() => {
   }
 
   function getConfig() {
-    return { type: 'github', repo: REPO, isConfigured: true };
+    return {
+      type: 'github',
+      repo: REPO,
+      isConfigured: true,
+      proxyUrl: _proxyUrl,
+    };
   }
 
   // ---- Fetch with timeout ----
   function _fetchWithTimeout(url, opts, timeout) {
     var abort = new AbortController();
-    var signal = opts ? opts.signal : null;
-    // Merge abort signals
     var mergedOpts = Object.assign({}, opts || {}, { signal: abort.signal });
     var timer = setTimeout(function() { abort.abort(); }, timeout || FETCH_TIMEOUT);
     return fetch(url, mergedOpts).then(function(resp) {
@@ -56,12 +95,13 @@ const CloudSync = (() => {
 
   async function test() {
     try {
-      var resp = await _fetchWithTimeout(RAW_URL + '?t=' + Date.now(), null, 8000);
+      var testUrl = _proxyUrl ? (_proxyUrl + '/health') : (RAW_URL + '?t=' + Date.now());
+      var resp = await _fetchWithTimeout(testUrl, null, 8000);
       return resp.ok || resp.status === 404;
     } catch(e) { return false; }
   }
 
-  // ---- Fetch from GitHub (raw CDN) ----
+  // ---- Fetch from GitHub (raw CDN, works in China) ----
   async function fetchData() {
     try {
       var resp = await _fetchWithTimeout(RAW_URL + '?t=' + Date.now(), null, 10000);
@@ -80,14 +120,26 @@ const CloudSync = (() => {
     }
   }
 
-  // ---- Push to GitHub (API) with retry ----
+  // ---- Build headers for API calls ----
+  function _apiHeaders() {
+    var h = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/vnd.github.v3+json',
+    };
+    // Only send token when talking to GitHub directly (not through proxy)
+    if (!_proxyUrl) {
+      h['Authorization'] = 'Bearer ' + TOKEN;
+    }
+    return h;
+  }
+
+  // ---- Push to GitHub (via proxy or direct) with retry ----
   async function push(data) {
     if (_syncInProgress) {
       console.log('☁️ Sync already in progress, skipping');
       return false;
     }
     _syncInProgress = true;
-    _lastSyncAttempt = Date.now();
 
     var result = await _pushWithRetry(data);
 
@@ -105,27 +157,28 @@ const CloudSync = (() => {
       }
 
       try {
+        var base = _writeBase();
+        var apiUrl = base + API_PATH;
+
         // Get latest SHA if we don't have it
         if (!_sha) {
-          var shaResp = await _fetchWithTimeout(API_URL, {
-            headers: { 'Authorization': 'Bearer ' + TOKEN }
-          }, 8000);
+          var shaResp = await _fetchWithTimeout(apiUrl, {
+            headers: _apiHeaders()
+          }, 10000);
 
           if (shaResp.ok) {
             var info = await shaResp.json();
             _saveSha(info.sha);
           } else if (shaResp.status === 404) {
-            // File doesn't exist yet — that's OK for first push
-            _saveSha(null);
+            _saveSha(null); // new file
           } else {
             lastError = 'SHA fetch: HTTP ' + shaResp.status;
-            continue; // retry
+            continue;
           }
         }
 
         // Encode payload
         var payload = JSON.stringify(data);
-        // Use TextEncoder for proper UTF-8 → base64 (available in all modern browsers)
         var encoder = new TextEncoder();
         var bytes = encoder.encode(payload);
         var content = _bytesToBase64(bytes);
@@ -133,12 +186,9 @@ const CloudSync = (() => {
         var body = { message: 'sync', content: content };
         if (_sha) body.sha = _sha;
 
-        var resp = await _fetchWithTimeout(API_URL, {
+        var resp = await _fetchWithTimeout(apiUrl, {
           method: 'PUT',
-          headers: {
-            'Authorization': 'Bearer ' + TOKEN,
-            'Content-Type': 'application/json',
-          },
+          headers: _apiHeaders(),
           body: JSON.stringify(body),
         }, FETCH_TIMEOUT);
 
@@ -149,25 +199,21 @@ const CloudSync = (() => {
           return true;
         }
 
-        // SHA conflict — refetch SHA and retry inside this attempt
+        // SHA conflict — refetch SHA and retry once
         if (resp.status === 422) {
           _saveSha(null);
-          // Refetch SHA
-          var retryResp = await _fetchWithTimeout(API_URL, {
-            headers: { 'Authorization': 'Bearer ' + TOKEN }
-          }, 8000);
+          var retryResp = await _fetchWithTimeout(apiUrl, {
+            headers: _apiHeaders()
+          }, 10000);
 
           if (retryResp.ok) {
             var retryInfo = await retryResp.json();
             _saveSha(retryInfo.sha);
             body.sha = _sha;
 
-            var putResp = await _fetchWithTimeout(API_URL, {
+            var putResp = await _fetchWithTimeout(apiUrl, {
               method: 'PUT',
-              headers: {
-                'Authorization': 'Bearer ' + TOKEN,
-                'Content-Type': 'application/json',
-              },
+              headers: _apiHeaders(),
               body: JSON.stringify(body),
             }, FETCH_TIMEOUT);
 
@@ -200,7 +246,6 @@ const CloudSync = (() => {
     return new Promise(function(resolve) { setTimeout(resolve, ms); });
   }
 
-  // ---- Base64 encode from byte array (replaces deprecated unescape) ----
   function _bytesToBase64(bytes) {
     var bin = '';
     var len = bytes.length;
@@ -243,8 +288,12 @@ const CloudSync = (() => {
     };
   }
 
-  // Dummy — kept for API compatibility with storage.js
   function configure() { return true; }
 
-  return { test, fetch: fetchData, push, isConfigured, configure, getConfig, isSyncing, smartMerge };
+  return {
+    test, fetch: fetchData, push,
+    isConfigured, configure, getConfig, isSyncing,
+    smartMerge,
+    getProxyUrl, setProxyUrl,
+  };
 })();
