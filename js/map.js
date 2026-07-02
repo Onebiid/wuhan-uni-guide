@@ -121,7 +121,6 @@ const MapModule = (() => {
       zoom: DEFAULT_ZOOM,
       zoomControl: false,
       attributionControl: true,
-      gestureHandling: false,
     });
 
     tileLayer = _createTileLayer();
@@ -213,10 +212,10 @@ const MapModule = (() => {
 
         if (place.photo) {
           Memory.show(place, function () {
-            UI.showDetail(place, place.addedBy === 'user');
+            UI.showDetail(place, true);
           });
         } else {
-          UI.showDetail(place, place.addedBy === 'user');
+          UI.showDetail(place, true);
         }
       });
 
@@ -283,7 +282,7 @@ const MapModule = (() => {
         }
       }
     }
-    UI.showDetail(place, place.addedBy === 'user');
+    UI.showDetail(place, true);
   }
 
   function setEditMode(active) {
