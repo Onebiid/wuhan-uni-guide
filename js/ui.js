@@ -22,8 +22,7 @@ const UI = (() => {
     dom.modalNote     = document.getElementById('modal-note');
     dom.modalPhotoInput   = document.getElementById('modal-photo');
     dom.modalPhotoPreview = document.getElementById('modal-photo-preview');
-    dom.modalPhotoPreviewImg = document.getElementById('modal-photo-preview-img');
-    dom.modalPhotoRemove = document.getElementById('modal-photo-remove');
+    dom.modalPhotoCount   = document.getElementById('modal-photo-count');
     dom.modalCoords   = document.getElementById('modal-coords-display');
     dom.modalCancel   = document.getElementById('modal-cancel');
     dom.modalTitle    = document.getElementById('modal-title');
@@ -35,8 +34,12 @@ const UI = (() => {
     dom.detailPanel   = document.getElementById('detail-panel');
     dom.detailName    = document.getElementById('detail-name');
     dom.detailBadge   = document.getElementById('detail-type-badge');
-    dom.detailPhoto   = document.getElementById('detail-photo');
     dom.detailNote    = document.getElementById('detail-note');
+    dom.carousel      = document.getElementById('detail-photo-carousel');
+    dom.carouselTrack = document.getElementById('carousel-track');
+    dom.carouselDots  = document.getElementById('carousel-dots');
+    dom.carouselPrev  = document.getElementById('carousel-prev');
+    dom.carouselNext  = document.getElementById('carousel-next');
     dom.detailPhotoEdit  = document.getElementById('detail-photo-edit');
     dom.detailPhotoInput = document.getElementById('detail-photo-input');
     dom.detailEdit    = document.getElementById('detail-edit');
@@ -50,10 +53,13 @@ const UI = (() => {
   let editModeActive = false;
   let pendingLat = null;
   let pendingLng = null;
-  let pendingPhotoFile = null;
+  let pendingPhotoFiles = [];      // File[] — new files to compress on save
+  let _existingPhotos = [];       // string[] — existing photo dataURLs when editing
+  let _removedPhotoIndices = new Set();  // indices into _existingPhotos removed by user
   let currentEditId = null;       // null = adding, string = editing
-  let _existingPhotoRemoved = false;
   let currentDetailPlace = null;
+  let _carouselPhotos = [];
+  let _carouselIndex = 0;
   let onAddModeChange = null;    // callback(app.setAddMode)
   let onEditModeChange = null;   // callback(active)
   let onSavePlace = null;        // callback(placeData)
@@ -101,7 +107,7 @@ const UI = (() => {
 
     // Modal save
     dom.modalSave.addEventListener('click', async () => {
-      const name = dom.modalName.value.trim();
+      var name = dom.modalName.value.trim();
       if (!name) {
         showToast('⚠️ 请输入地点名称');
         dom.modalName.focus();
@@ -112,38 +118,34 @@ const UI = (() => {
         return;
       }
 
-      let photo = null;
-      if (pendingPhotoFile) {
+      var compressedPhotos = [];
+      if (pendingPhotoFiles.length > 0) {
         dom.modalSave.textContent = '处理中...';
         dom.modalSave.disabled = true;
         try {
-          photo = await ImageUtils.compressImage(pendingPhotoFile);
+          compressedPhotos = await ImageUtils.compressImages(pendingPhotoFiles);
         } catch (e) {
           console.error('Photo compress failed', e);
           showToast('⚠️ 照片处理失败，请重试');
-          dom.modalSave.textContent = '保存地点';
+          dom.modalSave.textContent = currentEditId ? '保存修改' : '保存地点';
           dom.modalSave.disabled = false;
           return;
         }
-        dom.modalSave.textContent = '保存地点';
+        dom.modalSave.textContent = currentEditId ? '保存修改' : '保存地点';
         dom.modalSave.disabled = false;
       }
 
       if (currentEditId) {
         // ---- Edit existing place ----
-        const updates = {
+        var keptExisting = _existingPhotos.filter(function(_, i) { return !_removedPhotoIndices.has(i); });
+        var updates = {
           type: dom.modalType.value,
           name: name,
           note: dom.modalNote.value.trim(),
           lat: pendingLat,
           lng: pendingLng,
+          photos: keptExisting.concat(compressedPhotos),
         };
-        // Photo: only include if changed
-        if (pendingPhotoFile) {
-          updates.photo = photo;
-        } else if (_existingPhotoRemoved) {
-          updates.photo = null;
-        }
         if (onEditPlace) onEditPlace(currentEditId, updates);
       } else {
         // ---- Add new place ----
@@ -154,7 +156,7 @@ const UI = (() => {
             note: dom.modalNote.value.trim(),
             lat: pendingLat,
             lng: pendingLng,
-            photo: photo,
+            photos: compressedPhotos,
           });
         }
       }
@@ -222,53 +224,80 @@ const UI = (() => {
       document.dispatchEvent(new CustomEvent('search-cleared'));
     });
 
-    // Photo input — preview selected image in modal
-    dom.modalPhotoInput.addEventListener('change', () => {
-      const file = dom.modalPhotoInput.files[0];
-      if (!file) return;
-      pendingPhotoFile = file;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        dom.modalPhotoPreviewImg.src = e.target.result;
-        dom.modalPhotoPreview.classList.remove('hidden');
-        dom.modalPhotoInput.classList.add('hidden');
-      };
-      reader.readAsDataURL(file);
-    });
-
-    // Photo remove button in modal preview
-    dom.modalPhotoRemove.addEventListener('click', () => {
-      pendingPhotoFile = null;
-      _existingPhotoRemoved = true;
+    // Photo input — multi-select, append to pending files
+    dom.modalPhotoInput.addEventListener('change', function() {
+      var existingCount = currentEditId ? _existingPhotos.length - _removedPhotoIndices.size : 0;
+      var remaining = 9 - (existingCount + pendingPhotoFiles.length);
+      if (remaining <= 0) {
+        showToast('⚠️ 最多添加9张照片');
+        dom.modalPhotoInput.value = '';
+        return;
+      }
+      var files = Array.from(dom.modalPhotoInput.files).slice(0, remaining);
+      for (var i = 0; i < files.length; i++) { pendingPhotoFiles.push(files[i]); }
+      _renderModalPhotoPreviews();
       dom.modalPhotoInput.value = '';
-      dom.modalPhotoPreview.classList.add('hidden');
-      dom.modalPhotoInput.classList.remove('hidden');
     });
 
     // Photo edit button in detail panel — trigger hidden file input
-    dom.detailPhotoEdit.addEventListener('click', () => {
+    dom.detailPhotoEdit.addEventListener('click', function() {
+      var currentCount = (currentDetailPlace && currentDetailPlace.photos) ? currentDetailPlace.photos.length : 0;
+      if (currentCount >= 9) {
+        showToast('⚠️ 最多9张照片');
+        return;
+      }
       dom.detailPhotoInput.click();
     });
 
-    // Detail panel photo input — compress & update existing place
-    dom.detailPhotoInput.addEventListener('change', async () => {
-      const file = dom.detailPhotoInput.files[0];
-      if (!file || !currentDetailPlace) return;
+    // Detail panel photo input — multi-select, append to existing place
+    dom.detailPhotoInput.addEventListener('change', async function() {
+      var files = Array.from(dom.detailPhotoInput.files);
+      if (!files.length || !currentDetailPlace) return;
+      var currentCount = (currentDetailPlace.photos || []).length;
+      var remaining = 9 - currentCount;
+      if (remaining <= 0) {
+        showToast('⚠️ 最多9张照片');
+        dom.detailPhotoInput.value = '';
+        return;
+      }
+      var toCompress = files.slice(0, remaining);
       try {
         showToast('🖼️ 正在处理照片...');
-        const dataUrl = await ImageUtils.compressImage(file);
-        const updated = Storage.updateUserPlace(currentDetailPlace.id, { photo: dataUrl });
+        var newPhotos = await ImageUtils.compressImages(toCompress);
+        var updatedPhotos = (currentDetailPlace.photos || []).concat(newPhotos);
+        var updated = Storage.updateUserPlace(currentDetailPlace.id, { photos: updatedPhotos });
         if (updated) {
           currentDetailPlace = updated;
           MapModule.refreshMarkerPopup(currentDetailPlace.id, updated);
           _renderDetailPhoto(updated);
-          showToast('✅ 照片已添加！');
+          showToast('✅ 已添加 ' + newPhotos.length + ' 张照片！');
         }
       } catch (e) {
         console.error('Photo edit failed', e);
         showToast('⚠️ 照片处理失败，请重试');
       }
       dom.detailPhotoInput.value = '';
+    });
+
+    // Carousel navigation
+    dom.carouselPrev.addEventListener('click', function() { _goToSlide(_carouselIndex - 1); });
+    dom.carouselNext.addEventListener('click', function() { _goToSlide(_carouselIndex + 1); });
+    dom.carouselDots.addEventListener('click', function(e) {
+      var dot = e.target.closest('.carousel-dot');
+      if (dot) _goToSlide(parseInt(dot.dataset.index));
+    });
+
+    // Touch swipe for carousel
+    var touchStartX = 0;
+    dom.carouselTrack.addEventListener('touchstart', function(e) {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+    dom.carouselTrack.addEventListener('touchend', function(e) {
+      var diff = touchStartX - e.changedTouches[0].screenX;
+      if (Math.abs(diff) > 50) {
+        if (diff > 0) _goToSlide(_carouselIndex + 1);
+        else _goToSlide(_carouselIndex - 1);
+      }
     });
   }
 
@@ -316,54 +345,52 @@ const UI = (() => {
 
   function openEditModal(place) {
     currentEditId = place.id;
-    _existingPhotoRemoved = false;
+    _removedPhotoIndices = new Set();
+    _existingPhotos = place.photos || [];
+    pendingPhotoFiles = [];
     pendingLat = place.lat;
     pendingLng = place.lng;
-    pendingPhotoFile = null;
     dom.modalTitle.textContent = '✏️ 编辑地点';
     dom.modalSave.textContent = '保存修改';
     dom.modalType.value = place.type;
     dom.modalName.value = place.name;
     dom.modalNote.value = place.note || '';
-    dom.modalCoords.textContent = `📍 ${place.lat.toFixed(5)}, ${place.lng.toFixed(5)}`;
+    dom.modalCoords.textContent = '📍 ' + place.lat.toFixed(5) + ', ' + place.lng.toFixed(5);
     dom.modalPhotoInput.value = '';
-    if (place.photo) {
-      dom.modalPhotoPreviewImg.src = place.photo;
-      dom.modalPhotoPreview.classList.remove('hidden');
-      dom.modalPhotoInput.classList.add('hidden');
-    } else {
-      dom.modalPhotoPreview.classList.add('hidden');
-      dom.modalPhotoInput.classList.remove('hidden');
-    }
+    _renderModalPhotoPreviews();
     dom.modalOverlay.classList.remove('hidden');
-    setTimeout(() => dom.modalName.focus(), 300);
+    setTimeout(function() { dom.modalName.focus(); }, 300);
   }
 
   function openModalAt(lat, lng) {
     currentEditId = null;
-    _existingPhotoRemoved = false;
+    _removedPhotoIndices = new Set();
+    _existingPhotos = [];
+    pendingPhotoFiles = [];
     dom.modalTitle.textContent = '✨ 添加新地点';
     dom.modalSave.textContent = '保存地点';
     pendingLat = lat;
     pendingLng = lng;
-    pendingPhotoFile = null;
     dom.modalPhotoInput.value = '';
+    dom.modalPhotoPreview.innerHTML = '';
     dom.modalPhotoPreview.classList.add('hidden');
+    dom.modalPhotoCount.classList.add('hidden');
     dom.modalPhotoInput.classList.remove('hidden');
-    dom.modalCoords.textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    dom.modalCoords.textContent = '📍 ' + lat.toFixed(5) + ', ' + lng.toFixed(5);
     dom.modalName.value = '';
     dom.modalNote.value = '';
     dom.modalOverlay.classList.remove('hidden');
-    setTimeout(() => dom.modalName.focus(), 300);
+    setTimeout(function() { dom.modalName.focus(); }, 300);
   }
 
   function closeModal() {
     dom.modalOverlay.classList.add('hidden');
     pendingLat = null;
     pendingLng = null;
-    pendingPhotoFile = null;
+    pendingPhotoFiles = [];
+    _existingPhotos = [];
+    _removedPhotoIndices = new Set();
     currentEditId = null;
-    _existingPhotoRemoved = false;
   }
 
   // ---- Search Results ----
@@ -422,14 +449,113 @@ const UI = (() => {
   }
 
   function _renderDetailPhoto(place) {
-    if (place.photo) {
-      dom.detailPhoto.src = place.photo;
-      dom.detailPhoto.classList.remove('hidden');
-      dom.detailPhotoEdit.textContent = '📷 更换照片';
+    var photos = place.photos || [];
+    _carouselPhotos = photos;
+    _carouselIndex = 0;
+
+    if (photos.length > 0) {
+      // Build slides
+      dom.carouselTrack.innerHTML = photos.map(function(src, i) {
+        return '<div class="carousel-slide' + (i === 0 ? ' active' : '') + '" data-index="' + i + '">' +
+          '<img src="' + src + '" alt="照片 ' + (i + 1) + '" />' +
+        '</div>';
+      }).join('');
+      dom.carouselTrack.style.transform = 'translateX(0)';
+
+      // Build dots
+      dom.carouselDots.innerHTML = photos.map(function(_, i) {
+        return '<span class="carousel-dot' + (i === 0 ? ' active' : '') + '" data-index="' + i + '"></span>';
+      }).join('');
+
+      // Show/hide nav
+      dom.carouselPrev.style.display = photos.length > 1 ? '' : 'none';
+      dom.carouselNext.style.display = photos.length > 1 ? '' : 'none';
+      dom.carouselDots.style.display = photos.length > 1 ? '' : 'none';
+
+      dom.carousel.classList.remove('hidden');
+      dom.detailPhotoEdit.textContent = photos.length >= 9 ? '📷 已满' : '📷 添加照片';
     } else {
-      dom.detailPhoto.classList.add('hidden');
+      dom.carousel.classList.add('hidden');
       dom.detailPhotoEdit.textContent = '📷 添加照片';
     }
+  }
+
+  function _goToSlide(index) {
+    if (index < 0 || index >= _carouselPhotos.length) return;
+    _carouselIndex = index;
+
+    dom.carouselTrack.style.transform = 'translateX(-' + (index * 100) + '%)';
+
+    dom.carouselTrack.querySelectorAll('.carousel-slide').forEach(function(s, i) {
+      s.classList.toggle('active', i === index);
+    });
+    dom.carouselDots.querySelectorAll('.carousel-dot').forEach(function(d, i) {
+      d.classList.toggle('active', i === index);
+    });
+
+    dom.carouselPrev.style.visibility = index === 0 ? 'hidden' : '';
+    dom.carouselNext.style.visibility = index === _carouselPhotos.length - 1 ? 'hidden' : '';
+  }
+
+  // ---- Multi-photo modal preview ----
+
+  function _renderModalPhotoPreviews() {
+    dom.modalPhotoPreview.innerHTML = '';
+    var total = 0;
+
+    // Render existing (kept) photos
+    if (currentEditId) {
+      _existingPhotos.forEach(function(dataUrl, idx) {
+        if (_removedPhotoIndices.has(idx)) return;
+        _appendPhotoThumb(dataUrl, 'existing', idx);
+        total++;
+      });
+    }
+
+    // Render pending new files (with object URLs)
+    pendingPhotoFiles.forEach(function(file, idx) {
+      var objectUrl = URL.createObjectURL(file);
+      _appendPhotoThumb(objectUrl, 'pending', idx, file);
+      total++;
+    });
+
+    var show = total > 0;
+    dom.modalPhotoPreview.classList.toggle('hidden', !show);
+    dom.modalPhotoInput.classList.toggle('hidden', total >= 9);
+    dom.modalPhotoCount.textContent = '已选 ' + total + '/9 张';
+    dom.modalPhotoCount.classList.toggle('hidden', !show);
+  }
+
+  function _appendPhotoThumb(src, type, index, file) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'photo-preview-thumb';
+    wrapper.dataset.type = type;
+    wrapper.dataset.index = index;
+
+    var img = document.createElement('img');
+    img.src = src;
+
+    var removeBtn = document.createElement('button');
+    removeBtn.className = 'photo-remove-btn';
+    removeBtn.innerHTML = '&times;';
+    removeBtn.type = 'button';
+    removeBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      _removeModalPhoto(type, index, file);
+    });
+
+    wrapper.appendChild(img);
+    wrapper.appendChild(removeBtn);
+    dom.modalPhotoPreview.appendChild(wrapper);
+  }
+
+  function _removeModalPhoto(type, index, file) {
+    if (type === 'pending') {
+      pendingPhotoFiles = pendingPhotoFiles.filter(function(f, i) { return i !== index; });
+    } else if (type === 'existing') {
+      _removedPhotoIndices.add(index);
+    }
+    _renderModalPhotoPreviews();
   }
 
   // ---- Category Buttons ----
