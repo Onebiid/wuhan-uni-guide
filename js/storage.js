@@ -8,12 +8,7 @@ const Storage = (() => {
   const DELETED_KEY = 'whu_guide_deleted_ids';
   const MODIFIED_KEY = 'whu_guide_last_modified';
 
-  // ---- Cloud Sync (GitHub) ----
-  const GITHUB_TOKEN = 'ghp_' + 'KwrNFOAaLl6tm6FvjEh5DwOJx0FAX70kGKp2';
-  const CLOUD_PATH = 'data/user-data.json';
-  const CLOUD_API  = 'https://api.github.com/repos/Onebiid/wuhan-uni-guide/contents/' + CLOUD_PATH;
-  const CLOUD_RAW  = 'https://raw.githubusercontent.com/Onebiid/wuhan-uni-guide/main/' + CLOUD_PATH;
-  let _cloudSha = null;
+  // ---- Cloud Sync ----
   let _syncTimer = null;
 
   // ---- Place type metadata ----
@@ -74,33 +69,43 @@ const Storage = (() => {
     }
 
     // ---- Background cloud sync ----
-    var localModified = parseInt(localStorage.getItem(MODIFIED_KEY) || '0', 10);
-    _cloudFetch().then(function(cloudData) {
-      if (cloudData && cloudData.userPlaces) {
-        var cloudModified = cloudData.lastModified || 0;
-        if (cloudModified > localModified) {
-          // Cloud is newer — download and use it
-          userPlaces = cloudData.userPlaces.map(_normalizePhotos);
-          deletedIds = cloudData.deletedIds || [];
-          _persistLocal();
-          console.log('☁️ Cloud → local (' + userPlaces.length + ' places)');
-          document.dispatchEvent(new CustomEvent('cloud-synced'));
-        } else if (localModified > cloudModified) {
-          // Local is newer — push to cloud
-          console.log('☁️ Local → cloud (' + userPlaces.length + ' places)');
-          _scheduleCloudSync();
+    if (CloudSync.isConfigured()) {
+      var localModified = parseInt(localStorage.getItem(MODIFIED_KEY) || '0', 10);
+      CloudSync.fetch().then(function(cloudData) {
+        if (cloudData && cloudData.userPlaces) {
+          var cloudModified = cloudData.lastModified || 0;
+          if (cloudModified > localModified) {
+            // Cloud is newer — use smart merge instead of overwrite
+            var result = CloudSync.smartMerge(userPlaces, cloudData.userPlaces.map(_normalizePhotos), deletedIds, cloudData.deletedIds || []);
+            userPlaces = result.places;
+            deletedIds = result.deletedIds;
+            _persistLocal();
+            console.log('☁️ Cloud merged → local (' + userPlaces.length + ' places)');
+            if (result.warnings.length > 0) {
+              console.log('☁️ Merge notes:', result.warnings.join(', '));
+            }
+            // Sync music playlist from cloud
+            if (cloudData.musicPlaylist && cloudData.musicPlaylist.length > 0) {
+              _syncMusicFromCloud(cloudData.musicPlaylist, cloudData.musicIndex || 0);
+            }
+            document.dispatchEvent(new CustomEvent('cloud-synced'));
+          } else if (localModified > cloudModified) {
+            console.log('☁️ Local → cloud (' + userPlaces.length + ' places)');
+            _scheduleCloudSync();
+          } else {
+            console.log('☁️ In sync (' + userPlaces.length + ' places)');
+          }
         } else {
-          console.log('☁️ In sync (' + userPlaces.length + ' places)');
+          console.log('☁️ Creating cloud data...');
+          _bumpTimestamp();
+          _scheduleCloudSync();
         }
-      } else {
-        // No cloud data yet — push local to create it
-        console.log('☁️ Creating cloud data...');
-        _bumpTimestamp();
-        _scheduleCloudSync();
-      }
-    }).catch(function(e) {
-      console.warn('☁️ Cloud offline, using local data', e);
-    });
+      }).catch(function(e) {
+        console.warn('☁️ Cloud offline, using local data', e);
+      });
+    } else {
+      console.log('☁️ Cloud sync not configured — localStorage only');
+    }
   }
 
   /** Migrate old `photo` field → `photos` array. Returns a new object if changed. */
@@ -275,98 +280,69 @@ const Storage = (() => {
 
   // ---- Cloud Sync Functions ----
 
-  async function _cloudFetch() {
+  function _getMusicData() {
     try {
-      var resp = await fetch(CLOUD_RAW + '?t=' + Date.now());
-      if (!resp.ok) return null;
-      return await resp.json();
-    } catch(e) {
-      return null;
-    }
+      var raw = localStorage.getItem('whu_music_playlist');
+      var idx = localStorage.getItem('whu_music_index');
+      return {
+        playlist: raw ? JSON.parse(raw) : [],
+        index: idx ? parseInt(idx, 10) : 0,
+      };
+    } catch(e) { return { playlist: [], index: 0 }; }
   }
 
-  async function _cloudGetSha() {
+  function _syncMusicFromCloud(cloudPlaylist, cloudIndex) {
     try {
-      var resp = await fetch(CLOUD_API, {
-        headers: { 'Authorization': 'Bearer ' + GITHUB_TOKEN }
-      });
-      if (!resp.ok) { _cloudSha = null; return null; }
-      var data = await resp.json();
-      _cloudSha = data.sha;
-      return _cloudSha;
-    } catch(e) {
-      _cloudSha = null;
-      return null;
-    }
-  }
-
-  async function _cloudPush() {
-    try {
-      if (!_cloudSha) await _cloudGetSha();
-
-      var payload = JSON.stringify({
-        userPlaces: userPlaces,
-        deletedIds: deletedIds,
-        lastModified: parseInt(localStorage.getItem(MODIFIED_KEY) || '0', 10),
-      });
-      var content = btoa(unescape(encodeURIComponent(payload)));
-
-      var body = { message: 'sync user data', content: content };
-      if (_cloudSha) body.sha = _cloudSha;
-
-      var resp = await fetch(CLOUD_API, {
-        method: 'PUT',
-        headers: {
-          'Authorization': 'Bearer ' + GITHUB_TOKEN,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (resp.ok) {
-        var result = await resp.json();
-        _cloudSha = result.content.sha;
-        console.log('☁️ Sync OK ✓');
-        document.dispatchEvent(new CustomEvent('sync-success'));
-      } else if (resp.status === 422) {
-        // SHA conflict — refetch and retry once
-        _cloudSha = null;
-        await _cloudGetSha();
-        if (_cloudSha) {
-          body.sha = _cloudSha;
-          var retryResp = await fetch(CLOUD_API, {
-            method: 'PUT',
-            headers: {
-              'Authorization': 'Bearer ' + GITHUB_TOKEN,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(body),
-          });
-          if (retryResp.ok) {
-            var retryResult = await retryResp.json();
-            _cloudSha = retryResult.content.sha;
-            console.log('☁️ Sync OK ✓ (retry)');
-            document.dispatchEvent(new CustomEvent('sync-success'));
-          } else {
-            console.error('☁️ Sync FAIL:', retryResp.status, retryResp.statusText);
-            document.dispatchEvent(new CustomEvent('sync-failed'));
-          }
-        } else {
-          document.dispatchEvent(new CustomEvent('sync-failed'));
-        }
-      } else {
-        console.error('☁️ Sync FAIL:', resp.status, resp.statusText);
-        document.dispatchEvent(new CustomEvent('sync-failed'));
+      var local = _getMusicData();
+      // Only sync if cloud has more songs or local is empty
+      if (cloudPlaylist.length > local.playlist.length || local.playlist.length === 0) {
+        localStorage.setItem('whu_music_playlist', JSON.stringify(cloudPlaylist));
+        localStorage.setItem('whu_music_index', String(cloudIndex));
+        console.log('🎵 Music playlist synced from cloud (' + cloudPlaylist.length + ' songs)');
+        document.dispatchEvent(new CustomEvent('music-synced'));
       }
     } catch(e) {
-      console.error('☁️ Sync FAIL (network):', e.message || e);
-      document.dispatchEvent(new CustomEvent('sync-failed'));
+      console.warn('Music sync from cloud failed:', e);
     }
+  }
+
+  function _cloudPush() {
+    var musicData = _getMusicData();
+    var data = {
+      userPlaces: userPlaces,
+      deletedIds: deletedIds,
+      musicPlaylist: musicData.playlist,
+      musicIndex: musicData.index,
+      lastModified: parseInt(localStorage.getItem(MODIFIED_KEY) || '0', 10),
+    };
+    CloudSync.push(data).then(function(ok) {
+      if (ok) {
+        console.log('☁️ Sync OK ✓');
+        document.dispatchEvent(new CustomEvent('sync-success'));
+      } else {
+        console.error('☁️ Sync FAIL');
+        document.dispatchEvent(new CustomEvent('sync-failed'));
+      }
+    }).catch(function(e) {
+      console.error('☁️ Sync FAIL:', e.message || e);
+      document.dispatchEvent(new CustomEvent('sync-failed'));
+    });
   }
 
   function _scheduleCloudSync() {
     clearTimeout(_syncTimer);
     _syncTimer = setTimeout(_cloudPush, 1500);
+  }
+
+  // ---- Manual sync trigger (called from UI) ----
+  function syncNow() {
+    if (!CloudSync.isConfigured()) {
+      console.warn('☁️ Cloud sync not configured');
+      document.dispatchEvent(new CustomEvent('sync-failed'));
+      return;
+    }
+    _bumpTimestamp();
+    _scheduleCloudSync();
   }
 
   return {
@@ -386,5 +362,6 @@ const Storage = (() => {
     exportAll,
     importData,
     getPrimaryPhoto,
+    syncNow,
   };
 })();
