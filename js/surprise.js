@@ -27,22 +27,33 @@ const Surprise = (() => {
   let petalTimer = null;
 
   function init() {
-    const today = new Date();
-    const month = today.getMonth() + 1;
-    const day = today.getDate();
-    const dateKey = `${today.getFullYear()}-${month}-${day}`;
+    var today = new Date();
+    var month = today.getMonth() + 1;
+    var day = today.getDate();
+    var dateKey = today.getFullYear() + '-' + month + '-' + day;
 
-    const lastTriggered = localStorage.getItem(STORAGE_KEY);
+    // Preview mode: add ?surprise to URL to preview the effect
+    var isPreview = window.location.search.indexOf('surprise') !== -1;
+    if (isPreview) {
+      var match = SPECIAL_DATES[0]; // use the first (most recent) special date
+      setTimeout(function() {
+        startPetalRain();
+        setTimeout(function() { showLoveCard(match.message); }, 2000);
+      }, 800);
+      return; // don't save to localStorage — won't affect tomorrow's real trigger
+    }
+
+    var lastTriggered = localStorage.getItem(STORAGE_KEY);
     if (lastTriggered === dateKey) return;
 
-    const match = SPECIAL_DATES.find(d => d.month === month && d.day === day);
+    var match = SPECIAL_DATES.find(function(d) { return d.month === month && d.day === day; });
     if (!match) return;
 
     localStorage.setItem(STORAGE_KEY, dateKey);
 
-    setTimeout(() => {
+    setTimeout(function() {
       startPetalRain();
-      setTimeout(() => showLoveCard(match.message), 2000);
+      setTimeout(function() { showLoveCard(match.message); }, 2000);
     }, 1500);
   }
 
