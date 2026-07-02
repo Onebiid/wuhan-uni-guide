@@ -28,6 +28,7 @@
   --service: #7a9e7e;
   --study: #8b7a9e;
   --entertainment: #c49b6e;
+  --memory: #c48b8a;
   --other: #8c8c8c;
 
   /* Glass Morphism */
@@ -119,6 +120,7 @@ html, body {
 .map-marker.service .marker-dot        { background: linear-gradient(135deg, #7a9e7e, #96b5a0); }
 .map-marker.study .marker-dot          { background: linear-gradient(135deg, #8b7a9e, #a396b5); }
 .map-marker.entertainment .marker-dot  { background: linear-gradient(135deg, #c49b6e, #d4b896); }
+.map-marker.memory .marker-dot        { background: linear-gradient(135deg, #c48b8a, #dab5b4); }
 .map-marker.other .marker-dot          { background: linear-gradient(135deg, #8c8c8c, #a8a8a8); }
 
 /* Edit mode: scaled + subtle ring + gentle pulse */
@@ -360,6 +362,7 @@ html, body {
 .cat-btn[data-type="service"] .cat-dot  { background: var(--service); }
 .cat-btn[data-type="study"] .cat-dot    { background: var(--study); }
 .cat-btn[data-type="entertainment"] .cat-dot { background: var(--entertainment); }
+.cat-btn[data-type="memory"] .cat-dot { background: var(--memory); }
 .cat-btn[data-type="other"] .cat-dot    { background: var(--other); }
 
 .cat-btn.active .cat-dot {
@@ -829,6 +832,7 @@ button, .cat-btn, .search-result-item {
 .type-badge.service { background: var(--service); }
 .type-badge.study { background: var(--study); }
 .type-badge.entertainment { background: var(--entertainment); }
+.type-badge.memory { background: var(--memory); }
 .type-badge.other { background: var(--other); }
 
 #detail-note {
