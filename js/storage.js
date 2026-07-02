@@ -35,6 +35,9 @@ const Storage = (() => {
       presetPlaces = [];
     }
 
+    // Migrate preset places from old single-photo format
+    presetPlaces = presetPlaces.map(_normalizePhotos);
+
     // Load user-added places from localStorage
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -44,13 +47,42 @@ const Storage = (() => {
       userPlaces = [];
     }
 
+    // Migrate user places + persist cleaned format
+    var migrated = false;
+    userPlaces = userPlaces.map(function(p) {
+      var n = _normalizePhotos(p);
+      if (n !== p) migrated = true;
+      return n;
+    });
+    if (migrated) _persistUserPlaces();
+
     // Load deleted IDs
     try {
-      const raw = localStorage.getItem(DELETED_KEY);
+      var raw = localStorage.getItem(DELETED_KEY);
       deletedIds = raw ? JSON.parse(raw) : [];
     } catch (e) {
       deletedIds = [];
     }
+  }
+
+  /** Migrate old `photo` field → `photos` array. Returns a new object if changed. */
+  function _normalizePhotos(place) {
+    if (!place.photos) {
+      if (place.photo) {
+        var p = Object.assign({}, place, { photos: [place.photo] });
+        delete p.photo;
+        return p;
+      }
+      return Object.assign({}, place, { photos: [] });
+    }
+    return place;
+  }
+
+  /** Safe access to first photo regardless of field name */
+  function getPrimaryPhoto(place) {
+    if (place.photos && place.photos.length > 0) return place.photos[0];
+    if (place.photo) return place.photo;
+    return null;
   }
 
   // ---- Accessors ----
@@ -124,10 +156,10 @@ const Storage = (() => {
   }
 
   function getPlaceById(id) {
-    const preset = presetPlaces.find(p => p.id === id);
-    if (preset) return { ...preset, _isPreset: true };
-    const user = userPlaces.find(p => p.id === id);
-    return user ? { ...user, _isPreset: false } : null;
+    var preset = presetPlaces.find(function(p) { return p.id === id; });
+    if (preset) return _normalizePhotos(Object.assign({}, preset, { _isPreset: true }));
+    var user = userPlaces.find(function(p) { return p.id === id; });
+    return user ? _normalizePhotos(Object.assign({}, user, { _isPreset: false })) : null;
   }
 
   function editPlace(id, data) {
@@ -168,11 +200,12 @@ const Storage = (() => {
       if (!Array.isArray(data)) throw new Error('Not an array');
       const existingNames = new Set(userPlaces.map(p => p.name));
       const newItems = data.filter(d => !existingNames.has(d.name));
-      userPlaces = [...userPlaces, ...newItems.map(d => ({
-        ...d,
-        id: 'import_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        addedBy: 'import',
-      }))];
+      userPlaces = [...userPlaces, ...newItems.map(function(d) {
+        return _normalizePhotos(Object.assign({}, d, {
+          id: 'import_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          addedBy: 'import',
+        }));
+      })];
       _persistUserPlaces();
       return newItems.length;
     } catch (e) {
@@ -205,5 +238,6 @@ const Storage = (() => {
     resetDeleted,
     exportAll,
     importData,
+    getPrimaryPhoto,
   };
 })();
