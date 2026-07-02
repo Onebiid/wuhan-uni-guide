@@ -561,6 +561,7 @@ button, .cat-btn, .search-result-item {
 }
 
 #btn-reload-map,
+#btn-import,
 #btn-export,
 #btn-my-location {
   background: var(--glass-bg-strong);
