@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>武大美食生活地图 💕</title>
+  <title>姝﹀ぇ缇庨鐢熸椿鍦板浘 馃挄</title>
 
   <!-- PWA Manifest -->
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#e74c3c" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="WHU生活" />
+  <meta name="apple-mobile-web-app-title" content="WHU鐢熸椿" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 
   <!-- Leaflet CSS -->
@@ -19,16 +19,16 @@
   <link rel="stylesheet" href="css/style.css" />
 
   <!-- Favicon -->
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💕</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>馃挄</text></svg>">
 </head>
 <body>
 
   <!-- ====== Top Bar ====== -->
   <header id="top-bar">
-    <h1 id="site-title">武大生活地图</h1>
+    <h1 id="site-title">姝﹀ぇ鐢熸椿鍦板浘</h1>
     <div id="search-box">
-      <input type="text" id="search-input" placeholder="搜索地点、美食、设施..." autocomplete="off" />
-      <button id="search-clear" title="清除">&times;</button>
+      <input type="text" id="search-input" placeholder="鎼滅储鍦扮偣銆佺編椋熴€佽鏂?.." autocomplete="off" />
+      <button id="search-clear" title="娓呴櫎">&times;</button>
     </div>
     <div id="search-results" class="hidden"></div>
   </header>
@@ -37,44 +37,44 @@
   <aside id="category-bar">
     <button class="cat-btn active" data-type="all">
       <span class="cat-dot"></span>
-      <span class="cat-label">全部</span>
+      <span class="cat-label">鍏ㄩ儴</span>
       <span class="cat-count" id="count-all">0</span>
     </button>
     <button class="cat-btn" data-type="food">
       <span class="cat-dot"></span>
-      <span class="cat-label">美食</span>
+      <span class="cat-label">缇庨</span>
       <span class="cat-count" id="count-food">0</span>
     </button>
     <button class="cat-btn" data-type="shopping">
       <span class="cat-dot"></span>
-      <span class="cat-label">购物</span>
+      <span class="cat-label">璐墿</span>
       <span class="cat-count" id="count-shopping">0</span>
     </button>
     <button class="cat-btn" data-type="service">
       <span class="cat-dot"></span>
-      <span class="cat-label">生活</span>
+      <span class="cat-label">鐢熸椿</span>
       <span class="cat-count" id="count-service">0</span>
     </button>
     <button class="cat-btn" data-type="study">
       <span class="cat-dot"></span>
-      <span class="cat-label">学习</span>
+      <span class="cat-label">瀛︿範</span>
       <span class="cat-count" id="count-study">0</span>
     </button>
     <button class="cat-btn" data-type="entertainment">
       <span class="cat-dot"></span>
-      <span class="cat-label">娱乐</span>
+      <span class="cat-label">濞变箰</span>
       <span class="cat-count" id="count-entertainment">0</span>
     </button>
     <button class="cat-btn" data-type="other">
       <span class="cat-dot"></span>
-      <span class="cat-label">其他</span>
+      <span class="cat-label">鍏朵粬</span>
       <span class="cat-count" id="count-other">0</span>
     </button>
-    <!-- Separator: functional categories ↑ | personal ↓ -->
+    <!-- Separator: functional categories 鈫?| personal 鈫?-->
     <div class="cat-separator"></div>
     <button class="cat-btn cat-btn-special" data-type="memory">
       <span class="cat-dot cat-dot-special"></span>
-      <span class="cat-label">我们</span>
+      <span class="cat-label">鎴戜滑</span>
       <span class="cat-count cat-count-special" id="count-memory">0</span>
     </button>
   </aside>
@@ -85,82 +85,73 @@
 
     <!-- Add Mode Indicator -->
     <div id="add-mode-banner" class="hidden">
-      <span>点击地图上的位置来添加新地点</span>
-      <button id="cancel-add">取消</button>
+      <span>鐐瑰嚮鍦板浘涓婄殑浣嶇疆鏉ユ坊鍔犳柊鍦扮偣</span>
+      <button id="cancel-add">鍙栨秷</button>
     </div>
 
     <!-- Edit Mode Indicator -->
     <div id="edit-mode-banner" class="hidden">
-      <span>编辑模式 — 拖动标记移动位置，点击标记修改信息</span>
-      <button id="cancel-edit">完成</button>
+      <span>缂栬緫妯″紡 鈥?鎷栧姩鏍囪绉诲姩浣嶇疆锛岀偣鍑绘爣璁颁慨鏀逛俊鎭?/span>
+      <button id="cancel-edit">瀹屾垚</button>
     </div>
 
-    <!-- Legend -->
-    <div id="legend">
-      <div class="legend-item"><span class="legend-dot" style="background:#c2776a"></span>美食</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#7a9db5"></span>购物</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#7a9e7e"></span>生活</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#8b7a9e"></span>学习</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#c49b6e"></span>娱乐</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#c48b8a"></span>我们</div>
-    </div>
   </main>
 
   <!-- ====== Floating Action Buttons ====== -->
   <div id="fab-group">
-    <button id="btn-add-place" title="添加地点">
+    <button id="btn-add-place" title="娣诲姞鍦扮偣">
       <span>+</span>
     </button>
-    <button id="btn-edit-place" title="编辑地点">
-      <span>✎</span>
+    <button id="btn-edit-place" title="缂栬緫鍦扮偣">
+      <span>鉁?/span>
     </button>
-    <button id="btn-reload-map" title="刷新地图瓦片">
-      <span>↻</span>
+    <button id="btn-reload-map" title="鍒锋柊鍦板浘鐡︾墖">
+      <span>鈫?/span>
     </button>
-    <button id="btn-export" title="导出数据">
-      <span>↓</span>
+    <button id="btn-export" title="瀵煎嚭鏁版嵁">
+      <span>鈫?/span>
     </button>
-    <button id="btn-my-location" title="定位到我的位置">
-      <span>◎</span>
+    <button id="btn-my-location" title="瀹氫綅鍒版垜鐨勪綅缃?>
+      <span>鈼?/span>
     </button>
   </div>
 
   <!-- ====== Add Place Modal ====== -->
   <div id="modal-overlay" class="hidden">
     <div id="add-modal">
-      <h2 id="modal-title">✨ 添加新地点</h2>
+      <h2 id="modal-title">鉁?娣诲姞鏂板湴鐐?/h2>
 
-      <label for="modal-type">类型</label>
+      <label for="modal-type">绫诲瀷</label>
       <select id="modal-type">
-        <option value="food">美食</option>
-        <option value="shopping">购物</option>
-        <option value="service">生活服务</option>
-        <option value="study">学习</option>
-        <option value="entertainment">娱乐</option>
-        <option value="memory">🎓 我们</option>
-        <option value="other">其他</option>
+        <option value="food">缇庨</option>
+        <option value="shopping">璐墿</option>
+        <option value="service">鐢熸椿鏈嶅姟</option>
+        <option value="study">瀛︿範</option>
+        <option value="entertainment">濞变箰</option>
+        <option value="memory">馃帗 鎴戜滑</option>
+        <option value="other">鍏朵粬</option>
       </select>
 
-      <label for="modal-name">名称 *</label>
-      <input type="text" id="modal-name" placeholder="比如：小四川餐厅" maxlength="50" />
+      <label for="modal-name">鍚嶇О *</label>
+      <input type="text" id="modal-name" placeholder="姣斿锛氬皬鍥涘窛椁愬巺" maxlength="50" />
 
-      <label for="modal-note">备注</label>
-      <textarea id="modal-note" placeholder="推荐理由、必点菜品、人均价格..." rows="3" maxlength="200"></textarea>
+      <label for="modal-note">澶囨敞</label>
+      <textarea id="modal-note" placeholder="鎺ㄨ崘鐞嗙敱銆佸繀鐐硅彍鍝併€佷汉鍧囦环鏍?.." rows="3" maxlength="200"></textarea>
 
-      <label for="modal-photo">📷 照片（可选，最多9张）</label>
+      <label for="modal-photo">馃摲 鐓х墖锛堝彲閫夛紝鏈€澶?寮狅級</label>
       <div class="modal-photo-area">
         <input type="file" id="modal-photo" accept="image/*" multiple />
         <div id="modal-photo-preview" class="photo-preview-strip hidden"></div>
-        <div id="modal-photo-count" class="photo-count-hint hidden">已选 0/9 张</div>
+        <div id="modal-photo-count" class="photo-count-hint hidden">宸查€?0/9 寮?/div>
       </div>
 
       <div class="modal-coords">
-        <span id="modal-coords-display">点击地图选择位置</span>
+        <span id="modal-coords-display">鐐瑰嚮鍦板浘閫夋嫨浣嶇疆</span>
       </div>
 
       <div class="modal-buttons">
-        <button id="modal-cancel" class="btn-secondary">取消</button>
-        <button id="modal-save" class="btn-primary">保存地点</button>
+        <button id="modal-cancel" class="btn-secondary">鍙栨秷</button>
+        <button id="modal-save" class="btn-primary">淇濆瓨鍦扮偣</button>
       </div>
     </div>
   </div>
@@ -175,17 +166,17 @@
         <div class="photo-carousel-viewport">
           <div class="photo-carousel-track" id="carousel-track"></div>
         </div>
-        <button id="carousel-prev" class="carousel-nav carousel-prev" aria-label="上一张">&lsaquo;</button>
-        <button id="carousel-next" class="carousel-nav carousel-next" aria-label="下一张">&rsaquo;</button>
+        <button id="carousel-prev" class="carousel-nav carousel-prev" aria-label="涓婁竴寮?>&lsaquo;</button>
+        <button id="carousel-next" class="carousel-nav carousel-next" aria-label="涓嬩竴寮?>&rsaquo;</button>
         <div class="photo-carousel-dots" id="carousel-dots"></div>
       </div>
       <p id="detail-note"></p>
       <div id="detail-actions">
-        <button id="detail-photo-edit" class="btn-photo-edit hidden">📷 添加照片</button>
+        <button id="detail-photo-edit" class="btn-photo-edit hidden">馃摲 娣诲姞鐓х墖</button>
         <input type="file" id="detail-photo-input" class="hidden" accept="image/*" />
-        <button id="detail-edit" class="btn-secondary">✏️ 编辑</button>
-        <button id="detail-navigate" class="btn-primary">🗺️ 导航到这里</button>
-        <button id="detail-delete" class="btn-danger hidden">🗑️ 删除</button>
+        <button id="detail-edit" class="btn-secondary">鉁忥笍 缂栬緫</button>
+        <button id="detail-navigate" class="btn-primary">馃椇锔?瀵艰埅鍒拌繖閲?/button>
+        <button id="detail-delete" class="btn-danger hidden">馃棏锔?鍒犻櫎</button>
       </div>
     </div>
   </div>
@@ -193,7 +184,7 @@
   <!-- ====== Memory Overlay (photo surprise) ====== -->
   <div id="memory-overlay" class="hidden">
     <div class="memory-backdrop"></div>
-    <button id="memory-close" aria-label="关闭">✕</button>
+    <button id="memory-close" aria-label="鍏抽棴">鉁?/button>
     <div class="memory-stage">
       <div class="memory-photo-frame">
         <img id="memory-photo" src="" alt="" />
@@ -205,17 +196,17 @@
 
   <!-- ====== Love Counter ====== -->
   <div id="love-counter">
-    <span class="love-counter-icon">💕</span>
-    <span id="love-counter-text">我们在一起已经 ...</span>
+    <span class="love-counter-icon">馃挄</span>
+    <span id="love-counter-text">鎴戜滑鍦ㄤ竴璧峰凡缁?...</span>
   </div>
 
   <!-- ====== Surprise (anniversary easter egg) ====== -->
   <div id="petal-storm" class="hidden"></div>
   <div id="surprise-card" class="hidden">
     <div class="surprise-card-inner">
-      <span class="surprise-icon">💌</span>
+      <span class="surprise-icon">馃拰</span>
       <p id="surprise-message"></p>
-      <button id="surprise-dismiss">收下我的心意</button>
+      <button id="surprise-dismiss">鏀朵笅鎴戠殑蹇冩剰</button>
     </div>
   </div>
 
@@ -240,7 +231,7 @@
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').then(function() {
-        console.log('SW registered ✅');
+        console.log('SW registered 鉁?);
       }).catch(function(err) {
         console.log('SW registration skipped:', err.message);
       });
