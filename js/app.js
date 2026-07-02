@@ -100,6 +100,16 @@ const App = (() => {
       }
     });
 
+    // 8. Listen for cloud sync — refresh when remote data arrives
+    document.addEventListener('cloud-synced', function() {
+      MapModule.clearMarkers();
+      var places = Storage.getVisiblePlaces();
+      MapModule.renderMarkers(places);
+      UI.updateCounts(Storage.getCounts());
+      Search.updateIndex(places);
+      console.log('🔄 Synced from cloud — ' + places.length + ' places');
+    });
+
     console.log('💕 武大生活地图已就绪！');
     console.log(`📍 共加载 ${allPlaces.length} 个地点`);
   }
