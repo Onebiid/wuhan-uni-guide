@@ -6,3 +6,8 @@ coverage/
 .env.*
 !.env.example
 worker/.wrangler/
+.wrangler/
+.legacy-private/
+test-results/
+playwright-report/
+dist-worker/

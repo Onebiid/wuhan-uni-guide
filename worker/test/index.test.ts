@@ -1,0 +1,79 @@
+import { exports } from 'cloudflare:workers';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+const origin = 'https://onebiid.github.io';
+let workspaceId = '';
+let authToken = '';
+
+beforeEach(async () => {
+  workspaceId = `workspace_${crypto.randomUUID().replaceAll('-', '')}`;
+  const bytes = new Uint8Array(32);
+  bytes.fill(7);
+  authToken = bytesToBase64(bytes);
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  const response = await request('/v1/workspaces', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: origin },
+    body: JSON.stringify({ id: workspaceId, salt: bytesToBase64(new Uint8Array(16).fill(3)), authVerifier: bytesToBase64(digest), kdfIterations: 600_000 }),
+  });
+  expect(response.status).toBe(201);
+});
+
+describe('sync worker', () => {
+  it('rejects origins outside the deployment allowlist', async () => {
+    const response = await request('/health', { headers: { Origin: 'https://attacker.example' } });
+    expect(response.status).toBe(403);
+  });
+
+  it('requires a valid workspace authentication token', async () => {
+    const response = await request('/v1/sync?cursor=0', { headers: { Origin: origin, 'X-Workspace-Id': workspaceId, Authorization: 'Bearer wrong' } });
+    expect(response.status).toBe(401);
+  });
+
+  it('writes a conditional encrypted record and returns it incrementally', async () => {
+    const payload = { baseRevision: 0, revision: 1, updatedAt: 1_000, deletedAt: null, nonce: bytesToBase64(new Uint8Array(12).fill(1)), ciphertext: bytesToBase64(new Uint8Array([1, 2, 3, 4])) };
+    const write = await request('/v1/records/place/place_one', authRequest({ method: 'PUT', body: JSON.stringify(payload) }));
+    expect(write.status).toBe(200);
+    const conflict = await request('/v1/records/place/place_one', authRequest({ method: 'PUT', body: JSON.stringify(payload) }));
+    expect(conflict.status).toBe(409);
+    const sync = await request('/v1/sync?cursor=0', authRequest());
+    const body = await sync.json<{ records: Array<{ id: string; revision: number }>; cursor: number }>();
+    expect(sync.status).toBe(200);
+    expect(body.records.some((record) => record.id === 'place_one' && record.revision === 1)).toBe(true);
+    expect(body.cursor).toBeGreaterThan(0);
+  });
+
+  it('rejects media without encryption metadata', async () => {
+    const response = await request('/v1/media/memory_one/photo_one', authRequest({ method: 'PUT', body: new Uint8Array([1, 2, 3]) }));
+    expect(response.status).toBe(400);
+  });
+
+  it('rejects media declared above the 5MB limit before buffering', async () => {
+    const init = authRequest({ method: 'PUT', body: new Uint8Array([1]) });
+    const headers = new Headers(init.headers);
+    headers.set('Content-Length', String(5 * 1024 * 1024 + 1));
+    headers.set('X-Media-Nonce', bytesToBase64(new Uint8Array(12).fill(1)));
+    headers.set('X-Media-Checksum', bytesToBase64(new Uint8Array(32).fill(2)));
+    const response = await request('/v1/media/memory_one/photo_one', { ...init, headers });
+    expect(response.status).toBe(413);
+  });
+});
+
+function authRequest(init: RequestInit = {}): RequestInit {
+  const headers = new Headers(init.headers);
+  headers.set('Origin', origin);
+  headers.set('X-Workspace-Id', workspaceId);
+  headers.set('Authorization', `Bearer ${authToken}`);
+  headers.set('Content-Type', headers.get('Content-Type') ?? 'application/json');
+  return { ...init, headers };
+}
+
+function request(path: string, init?: RequestInit): Promise<Response> {
+  return exports.default.fetch(new Request(`https://sync.example${path}`, init));
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
