@@ -20,7 +20,7 @@ export function FilmFrame({ frameNumber, frameLabel, date, media, hasMedia, chil
   return <div className={`film-frame film-frame-${variant} ${className}`.trim()}>
     <div className="film-frame-perforation" aria-hidden="true"><span>{perforations}</span><b>{label}</b><span>{perforations}</span></div>
     <div className={showMedia ? 'film-frame-media' : 'film-frame-media unexposed'}>
-      {showMedia ? media : <><strong>UNEXPOSED</strong><small>NO MEDIA</small></>}
+      {showMedia ? media : <strong>UNEXPOSED</strong>}
     </div>
     <div className="film-frame-content">{children}<time>{date}</time></div>
   </div>;
