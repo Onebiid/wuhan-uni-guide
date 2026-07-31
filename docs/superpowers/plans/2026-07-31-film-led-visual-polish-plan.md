@@ -28,6 +28,7 @@
 - Create `src/features/map/presentation.ts`: pure derivation of latest frame and route chronology for each place.
 - Create `tests/film-frame.test.tsx`: rendering contract for photos and unexposed frames.
 - Create `tests/map-presentation.test.ts`: deterministic frame and route-order tests.
+- Create `tests/memory-page.test.tsx`: failed-photo retry contract without nested interactive controls.
 - Create `e2e/helpers.ts`: reusable encrypted-workspace setup for Playwright.
 - Create `e2e/visual.spec.ts`: layout, failure, long-text, and reduced-motion regression coverage.
 - Modify `src/app/App.tsx`: film-led bottom navigation and removal of the redundant map route callback.
@@ -409,13 +410,57 @@ git commit -m "feat: apply film-led map composition"
 - Modify: `src/features/memories/MemoryPage.tsx`
 - Modify: `src/styles.css:192-228`
 - Modify: `e2e/app.spec.ts`
+- Create: `tests/memory-page.test.tsx`
 
 **Interfaces:**
 - Consumes: `FilmFrame` from Task 1
 - Preserves: `MemoryPageProps.onOpenMap(placeId?: string): void`
 - Preserves: `loadPhotoObjectUrl(session, photoId, memoryId): Promise<string | null>` and URL cleanup
+- Produces: `MemoryCover` retry control with accessible name `重试照片`
 
-- [ ] **Step 1: Add failing memory visual assertions to the core flow**
+- [ ] **Step 1: Add failing memory visual and failed-photo retry assertions**
+
+Create `tests/memory-page.test.tsx`:
+
+```tsx
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Memory } from '../src/domain/models';
+
+const mocks = vi.hoisted(() => ({ loadPhotoObjectUrl: vi.fn() }));
+
+vi.mock('../src/app/WorkspaceContext', () => ({
+  useWorkspace: () => ({ session: { workspace: { id: 'workspace_test' } } }),
+}));
+vi.mock('../src/data/repository', () => ({ loadPhotoObjectUrl: mocks.loadPhotoObjectUrl }));
+
+import { MemoryCover } from '../src/features/memories/MemoryPage';
+
+const memory: Memory = {
+  id: 'memory_retry', placeId: 'place_one', title: '照片回忆', text: '', occurredOn: '2026-07-20',
+  photoIds: ['photo_one'], frameNumber: 1, createdAt: 1, updatedAt: 1, revision: 0,
+  deviceId: 'device_one', deletedAt: null,
+};
+
+describe('MemoryCover', () => {
+  beforeEach(() => {
+    mocks.loadPhotoObjectUrl.mockReset();
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+  });
+
+  it('retries a failed photo load from an independent accessible control', async () => {
+    mocks.loadPhotoObjectUrl.mockResolvedValueOnce(null).mockResolvedValueOnce('blob:retried');
+    const user = userEvent.setup();
+    render(<MemoryCover memory={memory} />);
+
+    await user.click(await screen.findByRole('button', { name: '重试照片' }));
+
+    expect(await screen.findByRole('img', { name: '照片回忆' })).toHaveAttribute('src', 'blob:retried');
+    expect(mocks.loadPhotoObjectUrl).toHaveBeenCalledTimes(2);
+  });
+});
+```
 
 Update the existing navigation click to use the stable label and assert the film frame:
 
@@ -445,11 +490,12 @@ Remove the `.mode-switch`. Keep the empty-state and detail return-to-map command
 
 - [ ] **Step 3: Make MemoryCover return media only**
 
-Refactor `MemoryCover` so it returns photo-loading, loaded-photo, or failed-photo presentation content without owning the no-photo placeholder:
+Import `RefreshCw` from Lucide. Export `MemoryCover` for its focused contract test, and make it return photo-loading, loaded-photo, or failed-photo presentation content without owning the no-photo placeholder:
 
 ```tsx
-function MemoryCover({ memory }: { memory: Memory }) {
+export function MemoryCover({ memory }: { memory: Memory }) {
   const { session } = useWorkspace();
+  const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<{ settled: boolean; url: string | null }>({
     settled: false,
     url: null,
@@ -471,9 +517,11 @@ function MemoryCover({ memory }: { memory: Memory }) {
       setState({ settled: true, url: null });
     }
     return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [memory.id, memory.photoIds, session]);
+  }, [attempt, memory.id, memory.photoIds, session]);
   if (!state.settled) return <span>DEVELOPING</span>;
-  return state.url ? <img src={state.url} alt="" /> : <span>照片暂时无法载入</span>;
+  return state.url
+    ? <img src={state.url} alt={memory.title} />
+    : <button className="photo-retry" type="button" onClick={() => setAttempt((value) => value + 1)}><RefreshCw aria-hidden="true" />重试照片</button>;
 }
 ```
 
@@ -481,20 +529,24 @@ The `FilmFrame` primitive owns `UNEXPOSED` whenever `hasMedia` is false. When a 
 
 - [ ] **Step 4: Render each memory through FilmFrame**
 
-Inside the existing button, render:
+Replace the outer card button with a non-interactive `<article className="memory-card">`. Render the independent open command inside `FilmFrame` content so the retry command in the media slot is never nested inside another button:
 
 ```tsx
-<FilmFrame
-  frameNumber={memory.frameNumber}
-  date={formatDate(memory.occurredOn)}
-  media={<MemoryCover memory={memory} />}
-  hasMedia={memory.photoIds.length > 0}
->
-  <div className="memory-card-copy">
-    <h2>{memory.title}</h2>
-    <p>{place?.name ?? '未关联地点'}{memory.text ? ` · ${memory.text}` : ''}</p>
-  </div>
-</FilmFrame>
+<article className="memory-card" key={memory.id}>
+  <FilmFrame
+    frameNumber={memory.frameNumber}
+    date={formatDate(memory.occurredOn)}
+    media={<MemoryCover memory={memory} />}
+    hasMedia={memory.photoIds.length > 0}
+  >
+    <button className="memory-card-open" type="button" onClick={() => setSelected(memory)} aria-label={`打开回忆：${memory.title}`}>
+      <span className="memory-card-copy">
+        <strong>{memory.title}</strong>
+        <span>{place?.name ?? '未关联地点'}{memory.text ? ` · ${memory.text}` : ''}</span>
+      </span>
+    </button>
+  </FilmFrame>
+</article>
 ```
 
 Because photo presence and asynchronous photo state are different concerns, let `FilmFrame` accept `hasMedia?: boolean` and pass `hasMedia={memory.photoIds.length > 0}`. Render its `media` slot only when `hasMedia` is true; otherwise render `UNEXPOSED`. Task 1 tests cover the explicit false override and the `NEW PLACE` label contract.
@@ -510,8 +562,12 @@ Use fixed geometry:
 .memory-card .film-frame { box-shadow: 4px 4px 0 var(--ink); }
 .memory-card:nth-of-type(even) { margin-left: 8px; transform: none; }
 .memory-card:nth-of-type(even) .film-frame { box-shadow: -4px 4px 0 var(--brick-red); }
-.memory-card-copy h2 { margin: 0; font: 700 17px/1.25 "Songti SC", "STSong", serif; }
-.memory-card-copy p { display: -webkit-box; overflow: hidden; margin: 5px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.memory-card-open { width: 100%; min-height: 44px; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; }
+.memory-card-copy { display: grid; gap: 5px; }
+.memory-card-copy strong { font: 700 17px/1.25 "Songti SC", "STSong", serif; }
+.memory-card-copy span { display: -webkit-box; overflow: hidden; color: var(--muted); font-size: 10px; line-height: 1.5; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.photo-retry { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 6px; border: 1px solid currentColor; background: transparent; color: inherit; }
+.photo-retry svg { width: 16px; height: 16px; }
 ```
 
 Remove obsolete `.film-perforation`, `.memory-cover.placeholder`, and duplicated date-stamp rules now owned by `FilmFrame`.
@@ -521,7 +577,7 @@ Remove obsolete `.film-perforation`, `.memory-cover.placeholder`, and duplicated
 Run:
 
 ```powershell
-npm.cmd test -- tests/film-frame.test.tsx
+npm.cmd test -- tests/film-frame.test.tsx tests/memory-page.test.tsx
 npm.cmd run typecheck
 npm.cmd run lint
 npx.cmd playwright test e2e/app.spec.ts --project=iphone-chromium
@@ -532,7 +588,7 @@ Expected: PASS. Inspect `memory-book.png`; confirm photo ratio remains stable, u
 - [ ] **Step 7: Commit the memory book**
 
 ```powershell
-git add src/features/memories/MemoryPage.tsx src/shared/FilmFrame.tsx src/styles.css tests/film-frame.test.tsx e2e/app.spec.ts
+git add src/features/memories/MemoryPage.tsx src/shared/FilmFrame.tsx src/styles.css tests/film-frame.test.tsx tests/memory-page.test.tsx e2e/app.spec.ts
 git commit -m "feat: polish the developed-roll memory book"
 ```
 
