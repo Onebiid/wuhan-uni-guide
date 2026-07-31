@@ -85,6 +85,17 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .date-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .form-error { margin: -2px 0 14px; padding: 10px; border-left: 3px solid var(--brick-red); background: #f9eef0; color: #7d2934; font-size: 12px; line-height: 1.45; }
 
+.film-frame { position: relative; border: 1px solid var(--ink); background: var(--surface); color: var(--ink); }
+.film-frame-perforation { height: 17px; display: flex; align-items: center; justify-content: space-between; padding: 0 4px; color: var(--muted); font-size: 6px; }
+.film-frame-perforation b { color: var(--ink); font: 700 7px/1 "DIN Alternate", ui-monospace, monospace; }
+.film-frame-media { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; background: #e4e8e6; }
+.film-frame-media > img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.film-frame-media.unexposed { display: grid; place-content: center; justify-items: center; color: var(--brick-red); }
+.film-frame-media.unexposed strong { font: 800 15px/1 "DIN Alternate", ui-monospace, monospace; }
+.film-frame-media.unexposed small { margin-top: 7px; color: var(--muted); font: 700 8px/1 "DIN Alternate", ui-monospace, monospace; }
+.film-frame-content { position: relative; padding: 11px; }
+.film-frame-content > time { display: inline-block; margin-top: 8px; padding: 5px; border: 1px solid var(--brick-red); color: var(--brick-red); font: 700 7px/1 "DIN Alternate", ui-monospace, monospace; transform: rotate(-2deg); }
+
 .map-page { position: fixed; inset: 0; overflow: hidden; background: #dde4e2; }
 .map-surface, .map-canvas { position: absolute; inset: 0; }
 .map-canvas { background-color: #dbe2df; background-image: linear-gradient(rgba(22, 39, 74, 0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(22, 39, 74, 0.055) 1px, transparent 1px); background-size: 28px 28px; }
