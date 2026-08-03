@@ -108,19 +108,25 @@ export function MemoryDetail({ memory, placeName, onClose, onMap }: { memory: Me
   useEffect(() => {
     let active = true;
     const created: string[] = [];
+    const settledUrls: Array<string | null> = Array.from({ length: memory.photoIds.length }, () => null);
+    let settledCount = 0;
+    const settlePhoto = (index: number, value: string | null) => {
+      if (!active) {
+        if (value) URL.revokeObjectURL(value);
+        return;
+      }
+      settledUrls[index] = value;
+      settledCount += 1;
+      if (value) created.push(value);
+      if (settledCount === memory.photoIds.length) {
+        setUrls(settledUrls.filter((url): url is string => url !== null));
+      }
+    };
     if (session) {
-      void Promise.allSettled(
-        memory.photoIds.map((id) => loadPhotoObjectUrl(session, id, memory.id)),
-      ).then((results) => {
-        const settledUrls = results.flatMap((result) =>
-          result.status === 'fulfilled' && result.value ? [result.value] : [],
-        );
-        if (!active) {
-          settledUrls.forEach((url) => URL.revokeObjectURL(url));
-          return;
-        }
-        created.push(...settledUrls);
-        setUrls([...created]);
+      memory.photoIds.forEach((id, index) => {
+        void loadPhotoObjectUrl(session, id, memory.id)
+          .then((value) => settlePhoto(index, value))
+          .catch(() => settlePhoto(index, null));
       });
     }
     return () => { active = false; created.forEach((url) => URL.revokeObjectURL(url)); };

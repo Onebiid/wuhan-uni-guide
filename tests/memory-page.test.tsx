@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Memory } from '../src/domain/models';
@@ -77,5 +77,28 @@ describe('MemoryDetail', () => {
     expect(mocks.loadPhotoObjectUrl).toHaveBeenCalledTimes(2);
     unmount();
     expect(mocks.revokeObjectURL).toHaveBeenCalledWith('blob:loaded');
+  });
+
+  it('revokes each staggered detail URL without waiting for pending siblings', async () => {
+    const detailMemory = { ...memory, photoIds: ['photo_one', 'photo_two'] };
+    let resolveFirst!: (value: string | null) => void;
+    let resolveSecond!: (value: string | null) => void;
+    mocks.loadPhotoObjectUrl
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve; }));
+    const { unmount } = render(<MemoryDetail memory={detailMemory} placeName="测试地点" onClose={vi.fn()} onMap={vi.fn()} />);
+
+    await waitFor(() => expect(mocks.loadPhotoObjectUrl).toHaveBeenCalledTimes(2));
+    await act(async () => { resolveFirst('blob:first'); await Promise.resolve(); });
+    expect(mocks.revokeObjectURL).not.toHaveBeenCalled();
+
+    unmount();
+    expect(mocks.revokeObjectURL).toHaveBeenCalledTimes(1);
+    expect(mocks.revokeObjectURL).toHaveBeenNthCalledWith(1, 'blob:first');
+
+    await act(async () => { resolveSecond('blob:second'); await Promise.resolve(); });
+    await waitFor(() => expect(mocks.revokeObjectURL).toHaveBeenCalledTimes(2));
+    expect(mocks.revokeObjectURL).toHaveBeenNthCalledWith(1, 'blob:first');
+    expect(mocks.revokeObjectURL).toHaveBeenNthCalledWith(2, 'blob:second');
   });
 });
