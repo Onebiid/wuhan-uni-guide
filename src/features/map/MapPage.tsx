@@ -3,9 +3,11 @@ import { Crosshair, LocateFixed, Navigation, Pencil, Plus, Search, Trash2, Undo2
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { categories, categoryMeta, type Category, type Place } from '../../domain/models';
 import { toAmapNavigationUrl } from '../../services/coordinates';
+import { FilmFrame } from '../../shared/FilmFrame';
 import { MemoryForm } from '../memories/MemoryForm';
 import { PlaceForm } from '../places/PlaceForm';
 import { MapCanvas } from './MapCanvas';
+import { deriveMapPresentation } from './presentation';
 
 type Filter = 'all' | Category;
 type PositionMode = { kind: 'add' } | { kind: 'edit'; place: Place };
@@ -15,10 +17,9 @@ interface MapPageProps {
   onAddConsumed: () => void;
   initialSelectedId: string | null;
   onInitialSelectionConsumed: () => void;
-  onOpenMemories: () => void;
 }
 
-export function MapPage({ startAdding, onAddConsumed, initialSelectedId, onInitialSelectionConsumed, onOpenMemories }: MapPageProps) {
+export function MapPage({ startAdding, onAddConsumed, initialSelectedId, onInitialSelectionConsumed }: MapPageProps) {
   const { session, snapshot, upsertPlace, deletePlace, undoDeletePlace, upsertMemory, addPhotos } = useWorkspace();
   const pageRef = useRef<HTMLDivElement>(null);
   const [filter, setFilter] = useState<Filter>('all');
@@ -60,9 +61,16 @@ export function MapPage({ startAdding, onAddConsumed, initialSelectedId, onIniti
     });
   }, [filter, query, snapshot.places]);
 
+  const presentations = useMemo(
+    () => deriveMapPresentation(snapshot.places, snapshot.memories),
+    [snapshot.memories, snapshot.places],
+  );
   const selected = snapshot.places.find((place) => place.id === selectedId) ?? null;
   const selectedMemories = selected ? snapshot.memories.filter((memory) => memory.placeId === selected.id) : [];
-  const routePlaceIds = useMemo(() => new Set(snapshot.memories.map((memory) => memory.placeId)), [snapshot.memories]);
+  const latestMemoryId = selected ? presentations.get(selected.id)?.latestMemoryId ?? null : null;
+  const latestMemory = latestMemoryId ? snapshot.memories.find((memory) => memory.id === latestMemoryId) ?? null : null;
+  const latestFrameLabel = latestMemory ? `FRAME ${String(latestMemory.frameNumber).padStart(3, '0')}` : 'NEW PLACE';
+  const latestDate = latestMemory?.occurredOn?.replaceAll('-', ' / ') ?? 'DATE UNRECORDED';
   const dayCount = calculateDayCount(snapshot.relationship.togetherOn);
 
   function beginEdit(place: Place) {
@@ -103,7 +111,7 @@ export function MapPage({ startAdding, onAddConsumed, initialSelectedId, onIniti
       <MapCanvas
         places={visiblePlaces}
         selectedId={selectedId}
-        routePlaceIds={routePlaceIds}
+        presentations={presentations}
         positioning={positionMode !== null}
         onSelect={(id) => { setSelectedId(id); setExpanded(false); setConfirmDelete(false); }}
         onPositionChange={(lat, lng) => { if (positionMode) setPosition({ lat, lng }); }}
@@ -111,11 +119,11 @@ export function MapPage({ startAdding, onAddConsumed, initialSelectedId, onIniti
       />
 
       <header className="map-header">
-        <div className="map-title-row">
+        <div className="film-map-heading">
+          <span className="roll-stamp">ROLL 01</span>
           <div><p className="eyebrow">LUOJIA / PRIVATE ARCHIVE</p><h1>我们的武大</h1></div>
           <div className="day-stamp"><span>TOGETHER</span><strong>{dayCount === null ? '未设置' : `DAY ${dayCount.toLocaleString('zh-CN')}`}</strong></div>
         </div>
-        <div className="mode-switch" aria-label="视图切换"><button className="active" type="button">地图</button><button type="button" onClick={onOpenMemories}>回忆册</button></div>
         <div className="map-search-row">
           <label className="map-search"><Search aria-hidden="true" size={17} /><span className="sr-only">搜索地点</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索地点与备注" /></label>
           <button className="map-icon-command" type="button" onClick={() => setLocateRequest((value) => value + 1)} aria-label="定位到当前位置"><LocateFixed aria-hidden="true" size={19} /></button>
@@ -141,9 +149,16 @@ export function MapPage({ startAdding, onAddConsumed, initialSelectedId, onIniti
 
       {selected && !positionMode && (
         <aside className={expanded ? 'place-summary expanded' : 'place-summary'} aria-label={`${selected.name}详情`}>
-          <button className="summary-main" type="button" onClick={() => setExpanded((value) => !value)}>
-            <span className="film-thumb" style={{ '--category-color': categoryMeta[selected.category].color } as React.CSSProperties}><i>{String(selectedMemories[0]?.frameNumber ?? 0).padStart(3, '0')}</i></span>
-            <span className="summary-copy"><strong>{selected.name}</strong><small>{categoryMeta[selected.category].label}{selectedMemories[0]?.occurredOn ? ` · ${selectedMemories[0].occurredOn}` : ''}</small></span>
+          <button className="summary-main" type="button" onClick={() => setExpanded((value) => !value)} aria-label={`${selected.name}，${latestFrameLabel}，${latestDate}，${expanded ? '收起' : '详情'}`}>
+            <FilmFrame
+              frameNumber={latestMemory?.frameNumber ?? 0}
+              {...(latestMemory ? {} : { frameLabel: 'NEW PLACE' })}
+              date={latestDate}
+              media={<span className="film-thumb" style={{ '--category-color': categoryMeta[selected.category].color } as React.CSSProperties} aria-hidden="true" />}
+              children={null}
+              variant="thumbnail"
+            />
+            <span className="summary-copy"><strong>{selected.name}</strong><small>{categoryMeta[selected.category].label}{latestMemory?.occurredOn ? ` · ${latestMemory.occurredOn}` : ''}</small></span>
             <span className="summary-hint">{expanded ? '收起' : '详情'}</span>
           </button>
           {expanded && (

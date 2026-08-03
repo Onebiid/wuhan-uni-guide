@@ -1,20 +1,18 @@
 import { expect, test } from '@playwright/test';
 import sharp from 'sharp';
+import { createWorkspace } from './helpers';
 
 test('creates an encrypted workspace and completes the core map-memory flow', async ({ page }, testInfo) => {
   const consoleErrors: string[] = [];
   page.on('console', (message) => { if (message.type() === 'error' && !message.text().includes('Content Security Policy')) consoleErrors.push(message.text()); });
   page.on('pageerror', (error) => consoleErrors.push(error.message));
 
-  await page.goto('/');
-  await expect(page.getByRole('heading', { name: '我们的武大' })).toBeVisible();
-  await page.getByLabel('共同口令').fill('playwright shared passphrase');
-  await page.getByLabel('再次输入').fill('playwright shared passphrase');
-  await page.getByLabel('初见日期').fill('2023-03-15');
-  await page.getByLabel('在一起日期').fill('2024-01-01');
-  await page.getByRole('button', { name: '创建并进入' }).click();
-
-  await expect(page.getByLabel('武汉大学地点地图')).toBeVisible({ timeout: 15_000 });
+  await createWorkspace(page);
+  await expect(page.getByLabel('视图切换')).toHaveCount(0);
+  await expect(page.locator('.bottom-nav').getByRole('button', { name: '胶片', exact: true })).toBeVisible();
+  const mapHeaderBox = await page.locator('.map-header').boundingBox();
+  expect(mapHeaderBox).not.toBeNull();
+  expect(mapHeaderBox?.height).toBeLessThanOrEqual(150);
   await expect(page.getByRole('navigation', { name: '主要导航' })).toBeVisible();
   const firstTile = page.locator('.leaflet-tile-loaded').first();
   await expect(firstTile).toBeVisible({ timeout: 15_000 });
@@ -39,7 +37,7 @@ test('creates an encrypted workspace and completes the core map-memory flow', as
   await page.getByLabel('写下这一天').fill('地图与胶片册之间的完整流程。');
   await page.getByRole('button', { name: '存入回忆册' }).click();
 
-  await page.locator('.bottom-nav').getByRole('button', { name: '回忆', exact: true }).click();
+  await page.locator('.bottom-nav').getByRole('button', { name: '胶片', exact: true }).click();
   await expect(page.getByRole('heading', { name: '第一帧测试' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('memory-book.png'), fullPage: true });
   expect(consoleErrors).toEqual([]);

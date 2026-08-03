@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import L, { type LayerGroup, type Map as LeafletMap } from 'leaflet';
 import { categoryMeta, type Place } from '../../domain/models';
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../services/coordinates';
+import type { MapPlacePresentation } from './presentation';
 
 interface MapCanvasProps {
   places: Place[];
   selectedId: string | null;
-  routePlaceIds: Set<string>;
+  presentations: ReadonlyMap<string, MapPlacePresentation>;
   positioning: boolean;
   onSelect: (id: string | null) => void;
   onPositionChange: (lat: number, lng: number) => void;
@@ -22,7 +23,7 @@ const TILE_URL = CONFIGURED_TILE_URL || (import.meta.env.DEV ? DEV_TILE_URL : nu
 export function MapCanvas({
   places,
   selectedId,
-  routePlaceIds,
+  presentations,
   positioning,
   onSelect,
   onPositionChange,
@@ -107,11 +108,13 @@ export function MapCanvas({
       const [lng, lat] = wgs84ToGcj02(place.lng, place.lat);
       const meta = categoryMeta[place.category];
       const selected = selectedId === place.id;
+      const frameNumber = presentations.get(place.id)?.latestFrameNumber ?? null;
+      const markerLabel = frameNumber === null ? '' : String(frameNumber).padStart(2, '0');
       const icon = L.divIcon({
         className: 'map-marker-shell',
-        html: `<span class="map-marker ${selected ? 'selected' : ''}" style="--marker-color:${meta.color}"><i></i></span>`,
-        iconSize: [30, 36],
-        iconAnchor: [15, 32],
+        html: `<span class="map-marker ${selected ? 'selected' : ''} ${frameNumber === null ? '' : 'has-frame'}" style="--marker-color:${meta.color}"><i>${markerLabel}</i></span>`,
+        iconSize: [32, 38],
+        iconAnchor: [16, 34],
       });
       const marker = L.marker([lat, lng], { icon, title: place.name, keyboard: true, riseOnHover: true });
       marker.on('click', (event) => {
@@ -120,15 +123,18 @@ export function MapCanvas({
       });
       marker.addTo(markers);
     }
-  }, [places, selectedId]);
+  }, [places, presentations, selectedId]);
 
   useEffect(() => {
     const layer = routeRef.current;
     if (!layer) return;
     layer.clearLayers();
     const points = places
-      .filter((place) => routePlaceIds.has(place.id))
-      .sort((a, b) => a.createdAt - b.createdAt)
+      .filter((place) => presentations.get(place.id)?.routeOrder != null)
+      .sort((a, b) => {
+        const order = (presentations.get(a.id)?.routeOrder ?? 0) - (presentations.get(b.id)?.routeOrder ?? 0);
+        return order || a.id.localeCompare(b.id);
+      })
       .map((place) => {
         const [lng, lat] = wgs84ToGcj02(place.lng, place.lat);
         return L.latLng(lat, lng);
@@ -136,7 +142,7 @@ export function MapCanvas({
     if (points.length > 1) {
       L.polyline(points, { color: '#a03f49', weight: 3, opacity: 0.72, dashArray: '7 9', lineCap: 'round' }).addTo(layer);
     }
-  }, [places, routePlaceIds]);
+  }, [places, presentations]);
 
   useEffect(() => {
     if (!selectedId || positioning) return;

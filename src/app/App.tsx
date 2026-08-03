@@ -11,10 +11,10 @@ import { PwaUpdateNotice } from './PwaUpdateNotice';
 type AppSection = 'map' | 'memories' | 'music' | 'settings';
 
 const items: Array<{ id: AppSection; label: string; icon: typeof Map }> = [
-  { id: 'map', label: '探索', icon: Map },
-  { id: 'memories', label: '回忆', icon: BookOpen },
-  { id: 'music', label: '音乐', icon: Music2 },
-  { id: 'settings', label: '设置', icon: Settings },
+  { id: 'map', label: '地图', icon: Map },
+  { id: 'memories', label: '胶片', icon: BookOpen },
+  { id: 'music', label: '声音', icon: Music2 },
+  { id: 'settings', label: '档案', icon: Settings },
 ];
 
 export function App() {
@@ -74,7 +74,7 @@ function AppContent() {
   return (
     <div className="app-shell">
       <main className="app-main">
-        {section === 'map' && <MapPage key={mapKey} startAdding={startAdding} onAddConsumed={consumeAdd} initialSelectedId={focusPlaceId} onInitialSelectionConsumed={consumeFocus} onOpenMemories={() => setSection('memories')} />}
+        {section === 'map' && <MapPage key={mapKey} startAdding={startAdding} onAddConsumed={consumeAdd} initialSelectedId={focusPlaceId} onInitialSelectionConsumed={consumeFocus} />}
         {section === 'memories' && <MemoryPage onOpenMap={openMap} />}
         {section === 'music' && <MusicPage />}
         {section === 'settings' && <SettingsPage />}
