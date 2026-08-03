@@ -101,18 +101,32 @@ export function MemoryCover({ memory }: { memory: Memory }) {
     : <button className="photo-retry" type="button" onClick={() => setAttempt((value) => value + 1)}><RefreshCw aria-hidden="true" />重试照片</button>;
 }
 
-function MemoryDetail({ memory, placeName, onClose, onMap }: { memory: Memory; placeName: string; onClose: () => void; onMap: () => void }) {
+export function MemoryDetail({ memory, placeName, onClose, onMap }: { memory: Memory; placeName: string; onClose: () => void; onMap: () => void }) {
   const { session } = useWorkspace();
+  const workspaceId = session?.workspace.id;
   const [urls, setUrls] = useState<string[]>([]);
   useEffect(() => {
     let active = true;
     const created: string[] = [];
-    if (session) void Promise.all(memory.photoIds.map((id) => loadPhotoObjectUrl(session, id, memory.id))).then((values) => {
-      created.push(...values.filter((value): value is string => value !== null));
-      if (active) setUrls(created);
-    });
+    if (session) {
+      void Promise.allSettled(
+        memory.photoIds.map((id) => loadPhotoObjectUrl(session, id, memory.id)),
+      ).then((results) => {
+        const settledUrls = results.flatMap((result) =>
+          result.status === 'fulfilled' && result.value ? [result.value] : [],
+        );
+        if (!active) {
+          settledUrls.forEach((url) => URL.revokeObjectURL(url));
+          return;
+        }
+        created.push(...settledUrls);
+        setUrls([...created]);
+      });
+    }
     return () => { active = false; created.forEach((url) => URL.revokeObjectURL(url)); };
-  }, [memory.id, memory.photoIds, session]);
+    // Session keys are scoped by workspace; the provider object identity need not be stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memory.id, memory.photoIds, workspaceId]);
   return createPortal(<div className="sheet-backdrop"><article className="memory-detail" role="dialog" aria-modal="true" aria-labelledby="memory-detail-title"><header><div><p className="sheet-kicker">FRAME {String(memory.frameNumber).padStart(3, '0')}</p><h2 id="memory-detail-title">{memory.title}</h2></div><button className="icon-button" type="button" onClick={onClose} aria-label="关闭"><X aria-hidden="true" /></button></header>{urls.length > 0 && <div className="memory-gallery">{urls.map((url, index) => <img key={url} src={url} alt={`${memory.title}照片 ${index + 1}`} />)}</div>}<time className="memory-stamp">{formatDate(memory.occurredOn)}</time><p>{memory.text || '这段回忆还没有文字。'}</p><button className="map-return" type="button" onClick={onMap}><MapPin aria-hidden="true" />{placeName}</button></article></div>, document.body);
 }
 

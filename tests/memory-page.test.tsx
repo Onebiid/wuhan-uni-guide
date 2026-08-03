@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Memory } from '../src/domain/models';
@@ -10,7 +10,7 @@ vi.mock('../src/app/WorkspaceContext', () => ({
 }));
 vi.mock('../src/data/repository', () => ({ loadPhotoObjectUrl: mocks.loadPhotoObjectUrl }));
 
-import { MemoryCover } from '../src/features/memories/MemoryPage';
+import { MemoryCover, MemoryDetail } from '../src/features/memories/MemoryPage';
 
 const memory: Memory = {
   id: 'memory_retry', placeId: 'place_one', title: '照片回忆', text: '', occurredOn: '2026-07-20',
@@ -36,5 +36,46 @@ describe('MemoryCover', () => {
     expect(mocks.loadPhotoObjectUrl).toHaveBeenCalledTimes(2);
     unmount();
     expect(mocks.revokeObjectURL).toHaveBeenCalledWith('blob:retried');
+  });
+
+  it('revokes a cover URL that resolves after unmount', async () => {
+    let resolvePhoto!: (value: string | null) => void;
+    mocks.loadPhotoObjectUrl.mockImplementationOnce(() => new Promise((resolve) => { resolvePhoto = resolve; }));
+    const { unmount } = render(<MemoryCover memory={memory} />);
+
+    await waitFor(() => expect(mocks.loadPhotoObjectUrl).toHaveBeenCalledOnce());
+    unmount();
+    resolvePhoto('blob:late-cover');
+    await waitFor(() => expect(mocks.revokeObjectURL).toHaveBeenCalledWith('blob:late-cover'));
+  });
+});
+
+describe('MemoryDetail', () => {
+  beforeEach(() => {
+    mocks.loadPhotoObjectUrl.mockReset();
+    mocks.revokeObjectURL.mockReset();
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: mocks.revokeObjectURL });
+  });
+
+  it('revokes a detail URL that resolves after unmount', async () => {
+    let resolvePhoto!: (value: string | null) => void;
+    mocks.loadPhotoObjectUrl.mockImplementationOnce(() => new Promise((resolve) => { resolvePhoto = resolve; }));
+    const { unmount } = render(<MemoryDetail memory={memory} placeName="测试地点" onClose={vi.fn()} onMap={vi.fn()} />);
+
+    await waitFor(() => expect(mocks.loadPhotoObjectUrl).toHaveBeenCalledOnce());
+    unmount();
+    resolvePhoto('blob:late-detail');
+    await waitFor(() => expect(mocks.revokeObjectURL).toHaveBeenCalledWith('blob:late-detail'));
+  });
+
+  it('keeps successful detail photos when a sibling load rejects and revokes them on cleanup', async () => {
+    const detailMemory = { ...memory, photoIds: ['photo_one', 'photo_two'] };
+    mocks.loadPhotoObjectUrl.mockResolvedValueOnce('blob:loaded').mockRejectedValueOnce(new Error('decrypt failed'));
+    const { unmount } = render(<MemoryDetail memory={detailMemory} placeName="测试地点" onClose={vi.fn()} onMap={vi.fn()} />);
+
+    expect(await screen.findByRole('img', { name: '照片回忆照片 1' })).toHaveAttribute('src', 'blob:loaded');
+    expect(mocks.loadPhotoObjectUrl).toHaveBeenCalledTimes(2);
+    unmount();
+    expect(mocks.revokeObjectURL).toHaveBeenCalledWith('blob:loaded');
   });
 });

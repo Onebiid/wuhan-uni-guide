@@ -79,6 +79,7 @@ test('creates an encrypted workspace and completes the core map-memory flow', as
 
   await page.locator('.bottom-nav').getByRole('button', { name: '胶片', exact: true }).click();
   await expect(page.getByRole('heading', { name: '第一帧测试' })).toBeVisible();
+  await expect(page.locator('.memory-card .film-frame-perforation b')).toHaveText(['FRAME 002', 'FRAME 001']);
   const firstMemoryFrame = page.locator('.memory-card').filter({ has: page.getByRole('heading', { name: '第一帧测试' }) }).locator('.film-frame');
   await expect(firstMemoryFrame).toContainText('FRAME 001');
   await expect(firstMemoryFrame.locator('.film-frame-media.unexposed')).toContainText('UNEXPOSED');
@@ -87,7 +88,10 @@ test('creates an encrypted workspace and completes the core map-memory flow', as
     page.locator('.memory-scroll').boundingBox(),
     page.locator('.bottom-nav').boundingBox(),
   ]);
-  expect((memoryScrollBox?.y ?? 0) + (memoryScrollBox?.height ?? 0)).toBeLessThanOrEqual(memoryNavBox?.y ?? 0);
+  expect(memoryScrollBox).not.toBeNull();
+  expect(memoryNavBox).not.toBeNull();
+  if (!memoryScrollBox || !memoryNavBox) throw new Error('Memory scroll and navigation must have layout boxes');
+  expect(memoryScrollBox.y + memoryScrollBox.height).toBeLessThanOrEqual(memoryNavBox.y);
   await page.screenshot({ path: testInfo.outputPath('memory-book.png'), fullPage: true });
   await expect(page.getByRole('button', { name: '打开回忆：第一帧测试' })).toBeVisible();
   await expect(page.locator('.memory-card').first()).toHaveJSProperty('tagName', 'ARTICLE');
