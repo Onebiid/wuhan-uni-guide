@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MapPin, X } from 'lucide-react';
+import { MapPin, RefreshCw, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { loadPhotoObjectUrl } from '../../data/repository';
 import type { Memory } from '../../domain/models';
+import { FilmFrame } from '../../shared/FilmFrame';
 
 interface MemoryPageProps {
   onOpenMap: (placeId?: string) => void;
@@ -23,8 +24,8 @@ export function MemoryPage({ onOpenMap }: MemoryPageProps) {
   return (
     <section className="memory-page">
       <header className="memory-header">
-        <div className="memory-title-row"><div><p className="eyebrow">OUR SHARED FILM</p><h1>我们的武大</h1></div><div className="day-stamp"><span>TOGETHER</span><strong>{togetherDays ? `DAY ${togetherDays.toLocaleString('zh-CN')}` : '未设置日期'}</strong></div></div>
-        <div className="mode-switch"><button type="button" onClick={() => onOpenMap()}>地图</button><button className="active" type="button">回忆册</button></div>
+        <p className="eyebrow">OUR SHARED FILM · ROLL 01</p>
+        <div className="memory-title-row"><h1>我们的武大</h1><div className="day-stamp"><span>TOGETHER</span><strong>{togetherDays ? `DAY ${togetherDays.toLocaleString('zh-CN')}` : '未设置日期'}</strong></div></div>
         <div className="film-counter"><span>{String(sorted.length).padStart(2, '0')} FRAMES</span><i /><span>{snapshot.places.length} PLACES</span></div>
       </header>
 
@@ -36,11 +37,21 @@ export function MemoryPage({ onOpenMap }: MemoryPageProps) {
             <div className="year-rule"><span>{year}</span><i /></div>
             {memories.map((memory) => {
               const place = snapshot.places.find((item) => item.id === memory.placeId);
-              return <button className="memory-card" type="button" key={memory.id} onClick={() => setSelected(memory)}>
-                <div className="film-perforation"><span>▪ ▪ ▪ ▪</span><b>FRAME {String(memory.frameNumber).padStart(3, '0')}</b><span>▪ ▪ ▪ ▪</span></div>
-                <MemoryCover memory={memory} />
-                <div className="memory-card-body"><div><h2>{memory.title}</h2><p>{place?.name ?? '未关联地点'}{memory.text ? ` · ${memory.text}` : ''}</p></div><time>{formatDate(memory.occurredOn)}</time></div>
-              </button>;
+              return <article className="memory-card" key={memory.id}>
+                <FilmFrame
+                  frameNumber={memory.frameNumber}
+                  date={formatDate(memory.occurredOn)}
+                  media={<MemoryCover memory={memory} />}
+                  hasMedia={memory.photoIds.length > 0}
+                >
+                  <button className="memory-card-open" type="button" onClick={() => setSelected(memory)} aria-label={`打开回忆：${memory.title}`}>
+                    <span className="memory-card-copy">
+                      <strong role="heading" aria-level={2}>{memory.title}</strong>
+                      <span>{place?.name ?? '未关联地点'}{memory.text ? ` · ${memory.text}` : ''}</span>
+                    </span>
+                  </button>
+                </FilmFrame>
+              </article>;
             })}
           </section>
         ))}
@@ -51,21 +62,43 @@ export function MemoryPage({ onOpenMap }: MemoryPageProps) {
   );
 }
 
-function MemoryCover({ memory }: { memory: Memory }) {
+export function MemoryCover({ memory }: { memory: Memory }) {
   const { session } = useWorkspace();
-  const [url, setUrl] = useState<string | null>(null);
+  const workspaceId = session?.workspace.id;
+  const [attempt, setAttempt] = useState(0);
+  const [state, setState] = useState<{ settled: boolean; url: string | null }>({
+    settled: false,
+    url: null,
+  });
   useEffect(() => {
     let active = true;
     let objectUrl: string | null = null;
+    queueMicrotask(() => {
+      if (active) setState({ settled: false, url: null });
+    });
     if (session && memory.photoIds[0]) {
-      void loadPhotoObjectUrl(session, memory.photoIds[0], memory.id).then((value) => {
-        objectUrl = value;
-        if (active) setUrl(value);
+      void loadPhotoObjectUrl(session, memory.photoIds[0], memory.id)
+        .then((value) => {
+          objectUrl = value;
+          if (active) setState({ settled: true, url: value });
+          else if (value) URL.revokeObjectURL(value);
+        })
+        .catch(() => {
+          if (active) setState({ settled: true, url: null });
+        });
+    } else {
+      queueMicrotask(() => {
+        if (active) setState({ settled: true, url: null });
       });
     }
     return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [memory.id, memory.photoIds, session]);
-  return url ? <img className="memory-cover" src={url} alt="" /> : <div className="memory-cover placeholder"><span>WHU</span><small>{memory.occurredOn?.replaceAll('-', ' / ') ?? 'UNDATED'}</small></div>;
+    // Session keys are scoped by workspace; the provider object identity need not be stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt, memory.id, memory.photoIds, workspaceId]);
+  if (!state.settled) return <span>DEVELOPING</span>;
+  return state.url
+    ? <img src={state.url} alt={memory.title} />
+    : <button className="photo-retry" type="button" onClick={() => setAttempt((value) => value + 1)}><RefreshCw aria-hidden="true" />重试照片</button>;
 }
 
 function MemoryDetail({ memory, placeName, onClose, onMap }: { memory: Memory; placeName: string; onClose: () => void; onMap: () => void }) {

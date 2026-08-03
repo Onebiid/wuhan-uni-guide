@@ -79,7 +79,19 @@ test('creates an encrypted workspace and completes the core map-memory flow', as
 
   await page.locator('.bottom-nav').getByRole('button', { name: '胶片', exact: true }).click();
   await expect(page.getByRole('heading', { name: '第一帧测试' })).toBeVisible();
+  const firstMemoryFrame = page.locator('.memory-card').filter({ has: page.getByRole('heading', { name: '第一帧测试' }) }).locator('.film-frame');
+  await expect(firstMemoryFrame).toContainText('FRAME 001');
+  await expect(firstMemoryFrame.locator('.film-frame-media.unexposed')).toContainText('UNEXPOSED');
+  await expect(page.getByLabel('视图切换')).toHaveCount(0);
+  const [memoryScrollBox, memoryNavBox] = await Promise.all([
+    page.locator('.memory-scroll').boundingBox(),
+    page.locator('.bottom-nav').boundingBox(),
+  ]);
+  expect((memoryScrollBox?.y ?? 0) + (memoryScrollBox?.height ?? 0)).toBeLessThanOrEqual(memoryNavBox?.y ?? 0);
   await page.screenshot({ path: testInfo.outputPath('memory-book.png'), fullPage: true });
+  await expect(page.getByRole('button', { name: '打开回忆：第一帧测试' })).toBeVisible();
+  await expect(page.locator('.memory-card').first()).toHaveJSProperty('tagName', 'ARTICLE');
+  await expect(page.locator('.memory-card button button')).toHaveCount(0);
   expect(consoleErrors).toEqual([]);
 });
 
