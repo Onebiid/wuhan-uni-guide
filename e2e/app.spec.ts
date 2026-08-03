@@ -13,6 +13,25 @@ test('creates an encrypted workspace and completes the core map-memory flow', as
   const mapHeaderBox = await page.locator('.map-header').boundingBox();
   expect(mapHeaderBox).not.toBeNull();
   expect(mapHeaderBox?.height).toBeLessThanOrEqual(150);
+  const filterBoxes = await page.locator('.filter-strip button').evaluateAll((buttons) => buttons.map((button) => {
+    const box = button.getBoundingClientRect();
+    return { width: box.width, height: box.height };
+  }));
+  for (const box of filterBoxes) {
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  }
+  const markerBox = await page.locator('.map-marker-shell').first().boundingBox();
+  expect(markerBox).not.toBeNull();
+  expect(markerBox?.width).toBeGreaterThanOrEqual(44);
+  expect(markerBox?.height).toBeGreaterThanOrEqual(44);
+  await expect(page.locator('.film-map-heading')).toHaveCSS('pointer-events', 'none');
+  const headingInterceptsMap = await page.locator('.film-map-heading').evaluate((heading) => {
+    const box = heading.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    return hit !== null && heading.contains(hit);
+  });
+  expect(headingInterceptsMap).toBe(false);
   await expect(page.getByRole('navigation', { name: '主要导航' })).toBeVisible();
   const firstTile = page.locator('.leaflet-tile-loaded').first();
   await expect(firstTile).toBeVisible({ timeout: 15_000 });
@@ -76,6 +95,39 @@ test('keeps primary controls inside the iPhone viewport', async ({ page }) => {
 
 test('respects the reduced-motion preference', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition(success: PositionCallback) {
+          success({
+            coords: {
+              latitude: 30.545,
+              longitude: 114.37,
+              accuracy: 1,
+              altitude: null,
+              altitudeAccuracy: null,
+              heading: null,
+              speed: null,
+              toJSON() {
+                return this;
+              },
+            },
+            timestamp: Date.now(),
+            toJSON() {
+              return this;
+            },
+          });
+        },
+      },
+    });
+  });
   await page.goto('/');
   await expect(page.getByRole('button', { name: '创建并进入' })).toHaveCSS('transition-duration', '0s');
+  await createWorkspace(page);
+  const map = page.getByLabel('武汉大学地点地图');
+  await page.locator('.map-marker-shell').first().dispatchEvent('click');
+  await expect(map).not.toHaveClass(/leaflet-zoom-anim/);
+  await page.getByRole('button', { name: '定位到当前位置' }).click();
+  await expect(map).not.toHaveClass(/leaflet-zoom-anim/);
 });

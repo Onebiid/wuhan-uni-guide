@@ -113,8 +113,8 @@ export function MapCanvas({
       const icon = L.divIcon({
         className: 'map-marker-shell',
         html: `<span class="map-marker ${selected ? 'selected' : ''} ${frameNumber === null ? '' : 'has-frame'}" style="--marker-color:${meta.color}"><i>${markerLabel}</i></span>`,
-        iconSize: [32, 38],
-        iconAnchor: [16, 34],
+        iconSize: [44, 44],
+        iconAnchor: [22, 34],
       });
       const marker = L.marker([lat, lng], { icon, title: place.name, keyboard: true, riseOnHover: true });
       marker.on('click', (event) => {
@@ -150,14 +150,19 @@ export function MapCanvas({
     const map = mapRef.current;
     if (!place || !map) return;
     const [lng, lat] = wgs84ToGcj02(place.lng, place.lat);
-    map.flyTo([lat, lng], Math.max(map.getZoom(), 17), { duration: 0.45 });
+    const zoom = Math.max(map.getZoom(), 17);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      map.setView([lat, lng], zoom, { animate: false });
+      return;
+    }
+    map.flyTo([lat, lng], zoom, { duration: 0.18 });
   }, [places, positioning, selectedId]);
 
   useEffect(() => {
     if (locateRequest === 0 || !mapRef.current) return;
     navigator.geolocation.getCurrentPosition((position) => {
       const [lng, lat] = wgs84ToGcj02(position.coords.longitude, position.coords.latitude);
-      mapRef.current?.flyTo([lat, lng], 17, { duration: 0.5 });
+      mapRef.current?.setView([lat, lng], 17, { animate: false });
     }, () => {
       containerRef.current?.dispatchEvent(new CustomEvent('location-denied', { bubbles: true }));
     }, { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 });

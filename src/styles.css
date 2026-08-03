@@ -103,8 +103,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .map-tile-status span { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--route-gold); }
 .map-tile-status.error span, .map-tile-status.unconfigured span { background: var(--brick-red); }
 .leaflet-control-attribution { font-size: 8px !important; background: rgba(255, 255, 255, 0.76) !important; }
-.map-marker-shell { background: transparent; border: 0; }
-.map-marker { position: relative; width: 25px; height: 25px; display: block; border: 3px solid #fff; border-radius: 50% 50% 50% 4px; background: var(--marker-color); transform: rotate(-45deg); box-shadow: 0 5px 13px rgba(18, 35, 66, 0.28); }
+.map-marker-shell { width: 44px !important; height: 44px !important; background: transparent; border: 0; }
+.map-marker { position: absolute; top: 0; left: 6px; width: 25px; height: 25px; display: block; border: 3px solid #fff; border-radius: 50% 50% 50% 4px; background: var(--marker-color); transform: rotate(-45deg); box-shadow: 0 5px 13px rgba(18, 35, 66, 0.28); }
 .map-marker i { position: absolute; inset: 7px; border-radius: 50%; background: #fff; }
 .map-marker.has-frame i { inset: 0; display: grid; place-items: center; background: transparent; color: #fff; font: 800 7px/1 "DIN Alternate", ui-monospace, monospace; transform: rotate(45deg); }
 .map-marker.selected { transform: rotate(-45deg) scale(1.24); box-shadow: 0 0 0 6px rgba(160, 63, 73, 0.18), 0 7px 18px rgba(18, 35, 66, 0.3); }
@@ -115,8 +115,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .map-crosshair span { position: absolute; inset: 14px; border: 2px solid #fff; outline: 2px solid var(--brick-red); border-radius: 50%; background: rgba(160, 63, 73, 0.18); }
 
 .map-header { position: absolute; z-index: 500; top: calc(8px + var(--safe-top)); left: 10px; right: 10px; pointer-events: none; }
-.map-header button, .map-header input { pointer-events: auto; }
-.film-map-heading { min-height: 54px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 7px 8px; border: 1px solid var(--ink); background: rgba(247, 248, 247, 0.96); box-shadow: 3px 3px 0 var(--ink); pointer-events: auto; }
+.map-header button, .map-header input, .map-search { pointer-events: auto; }
+.film-map-heading { min-height: 54px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 7px 8px; border: 1px solid var(--ink); background: rgba(247, 248, 247, 0.96); box-shadow: 3px 3px 0 var(--ink); pointer-events: none; }
 .film-map-heading h1 { margin: 2px 0 0; font: 700 18px/1 "Songti SC", "STSong", serif; }
 .roll-stamp { padding: 5px; border: 1px solid var(--brick-red); color: var(--brick-red); font: 800 7px/1 "DIN Alternate", ui-monospace, monospace; transform: rotate(-2deg); }
 .film-map-heading .day-stamp { box-shadow: none; }
@@ -126,13 +126,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .mode-switch { height: 38px; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; border: 1px solid rgba(22, 39, 74, 0.16); border-radius: 5px; background: rgba(255, 255, 255, 0.96); box-shadow: 0 5px 15px rgba(18, 35, 66, 0.1); }
 .mode-switch button { min-height: 30px; border: 0; border-radius: 3px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 800; }
 .mode-switch button.active { background: var(--campus-blue); color: #fff; }
-.map-search-row { display: grid; grid-template-columns: 1fr 44px; gap: 7px; margin-top: 7px; }
+.map-search-row { display: grid; grid-template-columns: 1fr 44px; gap: 7px; margin-top: 4px; }
 .map-search { height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid rgba(22, 39, 74, 0.14); border-radius: 5px; background: rgba(255, 255, 255, 0.96); box-shadow: 0 5px 15px rgba(18, 35, 66, 0.1); color: var(--muted); }
 .map-search input { min-width: 0; flex: 1; border: 0; background: transparent; outline: 0; color: var(--ink); font-size: 13px; }
 .map-icon-command { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid rgba(22, 39, 74, 0.14); border-radius: 5px; background: rgba(255, 255, 255, 0.96); color: var(--campus-blue); box-shadow: 0 5px 15px rgba(18, 35, 66, 0.1); }
-.filter-strip { display: flex; gap: 5px; margin-top: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.filter-strip { display: flex; gap: 5px; margin-top: 4px; overflow-x: auto; padding-bottom: 0; scrollbar-width: none; }
 .filter-strip::-webkit-scrollbar { display: none; }
-.filter-strip button { flex: none; min-height: 34px; padding: 0 9px; border: 1px solid rgba(22, 39, 74, 0.14); border-radius: 4px; background: rgba(255, 255, 255, 0.96); color: #46535b; font-size: 11px; font-weight: 700; box-shadow: 0 3px 9px rgba(18, 35, 66, 0.08); }
+.filter-strip button { flex: none; min-width: 44px; min-height: 44px; padding: 0 9px; border: 1px solid rgba(22, 39, 74, 0.14); border-radius: 4px; background: rgba(255, 255, 255, 0.96); color: #46535b; font-size: 11px; font-weight: 700; box-shadow: 0 3px 9px rgba(18, 35, 66, 0.08); }
 .filter-strip button span { margin-left: 3px; color: var(--muted); font: 700 9px/1 "DIN Alternate", ui-monospace, monospace; }
 .filter-strip button.active { border-color: var(--brick-red); background: var(--brick-red); color: #fff; }
 .filter-strip button.active span { color: #fff; }
