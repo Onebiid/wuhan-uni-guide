@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import L, { type LayerGroup, type Map as LeafletMap } from 'leaflet';
 import { categoryMeta, type Place } from '../../domain/models';
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../services/coordinates';
+import { getGeolocationMotion, getMarkerSelectionMotion } from './motion';
 import type { MapPlacePresentation } from './presentation';
 
 interface MapCanvasProps {
@@ -151,18 +152,16 @@ export function MapCanvas({
     if (!place || !map) return;
     const [lng, lat] = wgs84ToGcj02(place.lng, place.lat);
     const zoom = Math.max(map.getZoom(), 17);
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      map.setView([lat, lng], zoom, { animate: false });
-      return;
-    }
-    map.flyTo([lat, lng], zoom, { duration: 0.18 });
+    const motion = getMarkerSelectionMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    if (motion.animate) map.flyTo([lat, lng], zoom, motion);
+    else map.setView([lat, lng], zoom, motion);
   }, [places, positioning, selectedId]);
 
   useEffect(() => {
     if (locateRequest === 0 || !mapRef.current) return;
     navigator.geolocation.getCurrentPosition((position) => {
       const [lng, lat] = wgs84ToGcj02(position.coords.longitude, position.coords.latitude);
-      mapRef.current?.setView([lat, lng], 17, { animate: false });
+      mapRef.current?.setView([lat, lng], 17, getGeolocationMotion());
     }, () => {
       containerRef.current?.dispatchEvent(new CustomEvent('location-denied', { bubbles: true }));
     }, { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 });

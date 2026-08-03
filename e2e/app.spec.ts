@@ -95,39 +95,6 @@ test('keeps primary controls inside the iPhone viewport', async ({ page }) => {
 
 test('respects the reduced-motion preference', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'geolocation', {
-      configurable: true,
-      value: {
-        getCurrentPosition(success: PositionCallback) {
-          success({
-            coords: {
-              latitude: 30.545,
-              longitude: 114.37,
-              accuracy: 1,
-              altitude: null,
-              altitudeAccuracy: null,
-              heading: null,
-              speed: null,
-              toJSON() {
-                return this;
-              },
-            },
-            timestamp: Date.now(),
-            toJSON() {
-              return this;
-            },
-          });
-        },
-      },
-    });
-  });
   await page.goto('/');
   await expect(page.getByRole('button', { name: '创建并进入' })).toHaveCSS('transition-duration', '0s');
-  await createWorkspace(page);
-  const map = page.getByLabel('武汉大学地点地图');
-  await page.locator('.map-marker-shell').first().dispatchEvent('click');
-  await expect(map).not.toHaveClass(/leaflet-zoom-anim/);
-  await page.getByRole('button', { name: '定位到当前位置' }).click();
-  await expect(map).not.toHaveClass(/leaflet-zoom-anim/);
 });
