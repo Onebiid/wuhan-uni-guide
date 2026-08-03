@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Crosshair, LocateFixed, Navigation, Pencil, Plus, Search, Trash2, Undo2, X } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
-import { categories, categoryMeta, type Category, type Place } from '../../domain/models';
+import { loadPhotoObjectUrl, type UnlockedWorkspace } from '../../data/repository';
+import { categories, categoryMeta, type Category, type Memory, type Place } from '../../domain/models';
 import { toAmapNavigationUrl } from '../../services/coordinates';
 import { FilmFrame } from '../../shared/FilmFrame';
 import { MemoryForm } from '../memories/MemoryForm';
@@ -150,14 +151,7 @@ export function MapPage({ startAdding, onAddConsumed, initialSelectedId, onIniti
       {selected && !positionMode && (
         <aside className={expanded ? 'place-summary expanded' : 'place-summary'} aria-label={`${selected.name}详情`}>
           <button className="summary-main" type="button" onClick={() => setExpanded((value) => !value)} aria-label={`${selected.name}，${latestFrameLabel}，${latestDate}，${expanded ? '收起' : '详情'}`}>
-            <FilmFrame
-              frameNumber={latestMemory?.frameNumber ?? 0}
-              {...(latestMemory ? {} : { frameLabel: 'NEW PLACE' })}
-              date={latestDate}
-              media={<span className="film-thumb" style={{ '--category-color': categoryMeta[selected.category].color } as React.CSSProperties} aria-hidden="true" />}
-              children={null}
-              variant="thumbnail"
-            />
+            <MapTicketFrame memory={latestMemory} session={session} color={categoryMeta[selected.category].color} />
             <span className="summary-copy"><strong>{selected.name}</strong><small>{categoryMeta[selected.category].label}{latestMemory?.occurredOn ? ` · ${latestMemory.occurredOn}` : ''}</small></span>
             <span className="summary-hint">{expanded ? '收起' : '详情'}</span>
           </button>
@@ -184,6 +178,53 @@ export function MapPage({ startAdding, onAddConsumed, initialSelectedId, onIniti
       {undoPlace && <div className="undo-toast" role="status"><span>地点已删除</span><button type="button" onClick={() => void undoDeletePlace(undoPlace).then(() => setUndoPlace(null))}><Undo2 aria-hidden="true" />撤销</button></div>}
       {notice && <button className="notice-toast" type="button" onClick={() => setNotice(null)}>{notice}</button>}
     </div>
+  );
+}
+
+function MapTicketFrame({ memory, session, color }: { memory: Memory | null; session: UnlockedWorkspace | null; color: string }) {
+  const memoryId = memory?.id ?? null;
+  const photoId = memory?.photoIds[0] ?? null;
+  const photoKey = session && memoryId && photoId ? `${session.workspace.id}:${memoryId}:${photoId}` : null;
+  const [photo, setPhoto] = useState<{ key: string; url: string } | null>(null);
+  const photoUrl = photo?.key === photoKey ? photo.url : null;
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | null = null;
+    if (session && memoryId && photoId && photoKey) {
+      void loadPhotoObjectUrl(session, photoId, memoryId).then((url) => {
+        if (!url) return;
+        if (!active) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        objectUrl = url;
+        setPhoto({ key: photoKey, url });
+      }).catch(() => {
+        // FilmFrame keeps the frame metadata visible as an unexposed fallback.
+      });
+    }
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [memoryId, photoId, photoKey, session]);
+
+  const isNewPlace = memory === null;
+  return (
+    <FilmFrame
+      frameNumber={memory?.frameNumber ?? 0}
+      {...(isNewPlace ? { frameLabel: 'NEW PLACE' } : {})}
+      date={memory?.occurredOn?.replaceAll('-', ' / ') ?? 'DATE UNRECORDED'}
+      media={isNewPlace
+        ? <span className="film-thumb" style={{ '--category-color': color } as React.CSSProperties} aria-hidden="true" />
+        : photoUrl
+          ? <img src={photoUrl} alt="" />
+          : undefined}
+      hasMedia={isNewPlace || photoUrl !== null}
+      children={null}
+      variant="thumbnail"
+    />
   );
 }
 

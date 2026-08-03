@@ -28,14 +28,35 @@ test('creates an encrypted workspace and completes the core map-memory flow', as
   await page.getByLabel('名称').fill('测试约会地点');
   await page.getByLabel('备注').fill('适配 iPhone 15 Pro 的测试记录');
   await page.getByRole('button', { name: '保存地点' }).click();
-  await expect(page.getByText('测试约会地点')).toBeVisible();
 
-  await page.locator('.summary-main').click();
+  const newPlaceTicket = page.getByRole('button', { name: '测试约会地点，NEW PLACE，DATE UNRECORDED，详情' });
+  await expect(newPlaceTicket).toBeVisible();
+  await expect(newPlaceTicket.locator('.film-thumb')).toBeVisible();
+  await newPlaceTicket.click();
   await page.locator('.summary-actions').getByRole('button', { name: '回忆' }).click();
   await page.getByLabel('标题').fill('第一帧测试');
   await page.getByLabel('日期').fill('2026-07-20');
   await page.getByLabel('写下这一天').fill('地图与胶片册之间的完整流程。');
   await page.getByRole('button', { name: '存入回忆册' }).click();
+
+  const unexposedTicket = page.getByRole('button', { name: '测试约会地点，FRAME 001，2026 / 07 / 20，收起' });
+  await expect(unexposedTicket).toBeVisible();
+  await expect(unexposedTicket.locator('.film-frame-media.unexposed')).toContainText('UNEXPOSED');
+
+  await page.locator('.summary-actions').getByRole('button', { name: '回忆' }).click();
+  await page.getByLabel('标题').fill('第二帧照片');
+  await page.getByLabel('日期').fill('2026-07-21');
+  await page.getByLabel('写下这一天').fill('这一帧带有加密照片。');
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'frame.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
+  });
+  await page.getByRole('button', { name: '存入回忆册' }).click();
+
+  const photoTicket = page.getByRole('button', { name: '测试约会地点，FRAME 002，2026 / 07 / 21，收起' });
+  await expect(photoTicket).toBeVisible();
+  await expect(photoTicket.locator('.film-frame-media img')).toBeVisible();
 
   await page.locator('.bottom-nav').getByRole('button', { name: '胶片', exact: true }).click();
   await expect(page.getByRole('heading', { name: '第一帧测试' })).toBeVisible();
