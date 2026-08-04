@@ -198,8 +198,6 @@ body:has(.sheet-backdrop) .bottom-nav { opacity: 0; pointer-events: none; }
 .update-notice strong, .update-notice span { display: block; }.update-notice strong { font-size: 12px; }.update-notice span { margin-top: 3px; color: var(--muted); font-size: 9px; }
 .update-command { min-height: 40px; display: flex; align-items: center; gap: 5px; padding: 0 10px; border: 0; border-radius: 4px; background: var(--campus-blue); color: #fff; font-size: 11px; font-weight: 800; }
 .sync-command { width: 44px; height: 44px; display: grid; place-items: center; margin-left: auto; border: 0; background: transparent; color: var(--campus-blue); }
-.sync-command:disabled svg { animation: sync-spin 1s linear infinite; }
-@keyframes sync-spin { to { transform: rotate(360deg); } }
 
 .photo-input { min-height: 52px; display: flex; align-items: center; gap: 9px; margin-bottom: 10px; padding: 0 12px; border: 1px dashed var(--campus-blue); border-radius: 4px; background: #eef1f5; color: var(--campus-blue); font-size: 12px; font-weight: 800; cursor: pointer; }
 .photo-input small { margin-left: auto; color: var(--muted); }
@@ -285,12 +283,9 @@ body:has(.sheet-backdrop) .bottom-nav { opacity: 0; pointer-events: none; }
 .settings-command.danger, .settings-command.danger strong { color: var(--brick-red); }
 
 @media (prefers-reduced-motion: no-preference) {
-  .nav-item, .add-button { transition: color 160ms ease, transform 160ms ease, background-color 160ms ease; }
-  .map-tile-status.loading span { animation: tile-status-pulse 1.1s ease-in-out infinite; }
   .notice-toast.frame-saved { animation: frame-saved 180ms ease-out; }
 }
 
-@keyframes tile-status-pulse { 50% { opacity: 0.35; transform: scale(0.75); } }
 @keyframes frame-saved { from { opacity: 0; transform: translateX(-50%) scale(0.96); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
 
 @media (max-height: 600px) {

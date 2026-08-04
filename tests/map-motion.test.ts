@@ -14,4 +14,3 @@ describe('map camera motion', () => {
     expect(getGeolocationMotion()).toEqual({ animate: false });
   });
 });
-

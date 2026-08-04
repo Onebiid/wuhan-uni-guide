@@ -11,4 +11,3 @@ export function getMarkerSelectionMotion(reducedMotion: boolean): MapCameraMotio
 export function getGeolocationMotion(): MapCameraMotion {
   return { animate: false };
 }
-
