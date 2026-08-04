@@ -98,6 +98,21 @@ test('creates an encrypted workspace and completes the core map-memory flow', as
   expect(memoryNavBox).not.toBeNull();
   if (!memoryScrollBox || !memoryNavBox) throw new Error('Memory scroll and navigation must have layout boxes');
   expect(memoryScrollBox.y + memoryScrollBox.height).toBeLessThanOrEqual(memoryNavBox.y);
+  const memoryCardBoxes = await page.locator('.memory-card').evaluateAll((cards) => cards.map((card) => {
+    const box = card.getBoundingClientRect();
+    return { x: box.x, y: box.y, width: box.width, height: box.height };
+  }));
+  expect(memoryCardBoxes).toHaveLength(2);
+  for (const box of memoryCardBoxes) {
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(393);
+  }
+  for (let index = 0; index < memoryCardBoxes.length - 1; index += 1) {
+    const current = memoryCardBoxes[index];
+    const next = memoryCardBoxes[index + 1];
+    if (!current || !next) throw new Error('Memory card geometry is incomplete');
+    expect(current.y + current.height).toBeLessThanOrEqual(next.y);
+  }
   await page.screenshot({ path: testInfo.outputPath('memory-book.png'), fullPage: true });
   await expect(page.getByRole('button', { name: '打开回忆：第一帧测试' })).toBeVisible();
   await expect(page.locator('.memory-card').first()).toHaveJSProperty('tagName', 'ARTICLE');
