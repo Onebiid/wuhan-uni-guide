@@ -28,6 +28,14 @@ const recordKinds = new Set(['place', 'memory', 'settings', 'playlist']);
 const MAX_JSON_BYTES = 950_000;
 const MAX_MEDIA_BYTES = 5 * 1024 * 1024;
 
+interface MediaMetadata {
+  nonce: string;
+  checksum: string;
+  contentType: string;
+  recordId: string;
+  byteLength: number;
+}
+
 app.use('*', secureHeaders({ xFrameOptions: 'DENY', referrerPolicy: 'no-referrer', crossOriginResourcePolicy: 'same-site' }));
 app.use('*', async (context, next) => {
   const requestId = crypto.randomUUID();
@@ -138,30 +146,27 @@ app.put('/v1/media/:recordId/:mediaId', async (context) => {
   const body = await context.req.raw.arrayBuffer();
   if (body.byteLength !== length) return jsonError(context, 400, 'media_length_mismatch');
   const key = mediaKey(workspaceId, recordId, mediaId);
-  const stored = await context.env.MEDIA.put(key, body, {
-    httpMetadata: { contentType: 'application/octet-stream' },
-    customMetadata: { nonce, checksum, contentType, recordId },
-  });
-  if (!stored) return jsonError(context, 500, 'media_write_failed');
-  return context.json({ ok: true, etag: stored.httpEtag }, 201);
+  const metadata: MediaMetadata = { nonce, checksum, contentType, recordId, byteLength: body.byteLength };
+  await context.env.MEDIA.put(key, body, { metadata });
+  return context.json({ ok: true, etag: checksum }, 201);
 });
 
 app.get('/v1/media/:recordId/:mediaId', async (context) => {
   const recordId = context.req.param('recordId');
   const mediaId = context.req.param('mediaId');
   if (!idPattern.test(recordId) || !idPattern.test(mediaId)) return jsonError(context, 400, 'invalid_media_id');
-  const object = await context.env.MEDIA.get(mediaKey(context.get('workspaceId'), recordId, mediaId));
-  if (!object) return jsonError(context, 404, 'media_not_found');
+  const object = await context.env.MEDIA.getWithMetadata<MediaMetadata>(mediaKey(context.get('workspaceId'), recordId, mediaId), 'stream');
+  if (!object.value || !object.metadata) return jsonError(context, 404, 'media_not_found');
   const headers = new Headers({
     'Content-Type': 'application/octet-stream',
-    'Content-Length': String(object.size),
+    'Content-Length': String(object.metadata.byteLength),
     'Cache-Control': 'private, no-store',
-    ETag: object.httpEtag,
+    ETag: `"${object.metadata.checksum}"`,
+    'X-Media-Nonce': object.metadata.nonce,
+    'X-Media-Checksum': object.metadata.checksum,
+    'X-Plaintext-Type': object.metadata.contentType,
   });
-  if (object.customMetadata?.nonce) headers.set('X-Media-Nonce', object.customMetadata.nonce);
-  if (object.customMetadata?.checksum) headers.set('X-Media-Checksum', object.customMetadata.checksum);
-  if (object.customMetadata?.contentType) headers.set('X-Plaintext-Type', object.customMetadata.contentType);
-  return new Response(object.body, { headers });
+  return new Response(object.value, { headers });
 });
 
 app.delete('/v1/media/:recordId/:mediaId', async (context) => {
@@ -268,11 +273,11 @@ async function cleanExpiredTombstones(env: Env): Promise<void> {
   await env.DB.prepare('DELETE FROM changes WHERE changed_at < ? AND seq NOT IN (SELECT MAX(seq) FROM changes GROUP BY workspace_id, record_id, kind)').bind(cutoff).run();
 }
 
-async function deleteMediaPrefix(bucket: R2Bucket, prefix: string): Promise<void> {
+async function deleteMediaPrefix(namespace: KVNamespace, prefix: string): Promise<void> {
   let cursor: string | undefined;
   do {
-    const listed = await bucket.list(cursor ? { prefix, cursor, limit: 1000 } : { prefix, limit: 1000 });
-    if (listed.objects.length > 0) await bucket.delete(listed.objects.map((object) => object.key));
-    cursor = listed.truncated ? listed.cursor : undefined;
+    const listed = await namespace.list(cursor ? { prefix, cursor, limit: 1000 } : { prefix, limit: 1000 });
+    await Promise.all(listed.keys.map((key) => namespace.delete(key.name)));
+    cursor = listed.list_complete ? undefined : listed.cursor;
   } while (cursor);
 }

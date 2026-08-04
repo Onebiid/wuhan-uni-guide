@@ -57,6 +57,31 @@ describe('sync worker', () => {
     const response = await request('/v1/media/memory_one/photo_one', { ...init, headers });
     expect(response.status).toBe(413);
   });
+  it('stores, returns, and deletes encrypted media with stable metadata', async () => {
+    const encrypted = new Uint8Array([11, 22, 33, 44]);
+    const nonce = bytesToBase64(new Uint8Array(12).fill(4));
+    const checksum = bytesToBase64(new Uint8Array(32).fill(5));
+    const headers = new Headers(authRequest().headers);
+    headers.set('Content-Type', 'application/octet-stream');
+    headers.set('Content-Length', String(encrypted.byteLength));
+    headers.set('X-Media-Nonce', nonce);
+    headers.set('X-Media-Checksum', checksum);
+    headers.set('X-Plaintext-Type', 'image/jpeg');
+
+    const put = await request('/v1/media/memory_one/photo_one', { method: 'PUT', headers, body: encrypted });
+    expect(put.status).toBe(201);
+    expect(await put.json()).toEqual({ ok: true, etag: checksum });
+
+    const get = await request('/v1/media/memory_one/photo_one', authRequest());
+    expect(get.status).toBe(200);
+    expect(get.headers.get('X-Media-Nonce')).toBe(nonce);
+    expect(get.headers.get('X-Media-Checksum')).toBe(checksum);
+    expect(get.headers.get('X-Plaintext-Type')).toBe('image/jpeg');
+    expect(new Uint8Array(await get.arrayBuffer())).toEqual(encrypted);
+
+    expect((await request('/v1/media/memory_one/photo_one', authRequest({ method: 'DELETE' }))).status).toBe(204);
+    expect((await request('/v1/media/memory_one/photo_one', authRequest())).status).toBe(404);
+  });
 });
 
 function authRequest(init: RequestInit = {}): RequestInit {

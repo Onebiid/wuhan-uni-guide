@@ -117,7 +117,7 @@ async function pushMutations(api: string, session: UnlockedWorkspace): Promise<b
 }
 
 async function pushMedia(api: string, session: UnlockedWorkspace): Promise<void> {
-  const items = await db.media.where('workspaceId').equals(session.workspace.id).and((item) => item.syncState === 'pending').toArray();
+  const items = await db.media.where('workspaceId').equals(session.workspace.id).and((item) => item.syncState !== 'synced').toArray();
   for (const media of items) {
     try {
       const response = await fetch(`${api}/v1/media/${encodeURIComponent(media.recordId)}/${encodeURIComponent(media.id)}`, {

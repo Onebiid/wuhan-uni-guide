@@ -1,36 +1,48 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "whu-couple-map-sync",
-  "main": "worker/src/index.ts",
-  "compatibility_date": "2026-07-20",
-  "compatibility_flags": ["nodejs_compat"],
-  "vars": {
-    "ENVIRONMENT": "production",
-    "ALLOWED_ORIGINS": "https://onebiid.github.io,http://localhost:5173,http://127.0.0.1:5173"
-  },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "whu-couple-map",
-      "migrations_dir": "worker/migrations"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "MEDIA",
-      "bucket_name": "whu-couple-map-media"
-    }
-  ],
-  "ratelimits": [
-    {
-      "name": "SYNC_RATE_LIMITER",
-      "namespace_id": "1001",
-      "simple": { "limit": 90, "period": 60 }
-    }
-  ],
-  "observability": {
-    "enabled": true,
-    "logs": { "enabled": true, "head_sampling_rate": 1 },
-    "traces": { "enabled": true, "head_sampling_rate": 0.05 }
-  }
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "whu-couple-map-sync",
+	"main": "worker/src/index.ts",
+	"compatibility_date": "2026-07-20",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"vars": {
+		"ENVIRONMENT": "production",
+		"ALLOWED_ORIGINS": "https://onebiid.github.io,http://localhost:5173,http://127.0.0.1:5173"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "whu-couple-map",
+			"database_id": "bd7e9db1-4e7b-46b3-b4b2-4c34d8448de2",
+			"migrations_dir": "worker/migrations"
+		}
+	],
+	"ratelimits": [
+		{
+			"name": "SYNC_RATE_LIMITER",
+			"namespace_id": "1001",
+			"simple": {
+				"limit": 90,
+				"period": 60
+			}
+		}
+	],
+	"observability": {
+		"enabled": true,
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1
+		},
+		"traces": {
+			"enabled": true,
+			"head_sampling_rate": 0.05
+		}
+	},
+	"kv_namespaces": [
+		{
+			"binding": "MEDIA",
+			"id": "64927a8c0b3343dc9e9b641af77cad58"
+		}
+	]
 }
