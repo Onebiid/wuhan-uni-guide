@@ -37,6 +37,7 @@ export function UnlockView() {
     <main className="unlock-view">
       <section className="unlock-intro" aria-labelledby="unlock-title">
         <div className="seal" aria-hidden="true">WHU<br />US</div>
+        <p className="roll-line">ROLL 01 · TWO PEOPLE ONLY</p>
         <p className="eyebrow">LUOJIA / PRIVATE ARCHIVE</p>
         <h1 id="unlock-title">我们的武大</h1>
         <p>{isSetup ? '建立只属于两个人的加密地图' : '共同口令解锁地图与回忆'}</p>
@@ -84,6 +85,7 @@ export function UnlockView() {
         <button className="primary-command" type="submit" disabled={submitting}>
           {submitting ? '正在建立密钥...' : isSetup ? '创建并进入' : '解锁地图'}
         </button>
+        <p className="unlock-privacy"><ShieldCheck aria-hidden="true" size={18} />密钥只保留在当前设备内存，离开后自动锁定。</p>
       </form>
     </main>
   );

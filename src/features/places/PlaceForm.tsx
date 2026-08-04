@@ -57,7 +57,7 @@ export function PlaceForm({ value, lat, lng, deviceId, onClose, onSave }: PlaceF
       <section className="form-sheet" role="dialog" aria-modal="true" aria-labelledby="place-form-title">
         <div className="sheet-grabber" aria-hidden="true" />
         <header className="sheet-header">
-          <div><p className="sheet-kicker">{value ? 'EDIT PLACE' : 'NEW PLACE'}</p><h2 id="place-form-title">{value ? '编辑地点' : '记录新地点'}</h2></div>
+          <div><p className="sheet-kicker">{value ? 'EDIT FRAME · PLACE' : 'NEW FRAME · PLACE'}</p><h2 id="place-form-title">{value ? '编辑地点' : '记录新地点'}</h2></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="关闭"><X aria-hidden="true" /></button>
         </header>
         <form onSubmit={(event) => void submit(event)}>

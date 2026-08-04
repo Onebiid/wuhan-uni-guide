@@ -12,6 +12,7 @@ import { deriveMapPresentation } from './presentation';
 
 type Filter = 'all' | Category;
 type PositionMode = { kind: 'add' } | { kind: 'edit'; place: Place };
+type Notice = { message: string; kind: 'default' | 'frame' };
 
 interface MapPageProps {
   startAdding: boolean;
@@ -34,7 +35,7 @@ export function MapPage({ startAdding, onAddConsumed, initialSelectedId, onIniti
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [undoPlace, setUndoPlace] = useState<Place | null>(null);
   const [locateRequest, setLocateRequest] = useState(0);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
 
   useEffect(() => { if (startAdding) onAddConsumed(); }, [onAddConsumed, startAdding]);
   useEffect(() => { if (initialSelectedId) onInitialSelectionConsumed(); }, [initialSelectedId, onInitialSelectionConsumed]);
@@ -42,7 +43,7 @@ export function MapPage({ startAdding, onAddConsumed, initialSelectedId, onIniti
   useEffect(() => {
     const page = pageRef.current;
     if (!page) return;
-    const denied = () => setNotice('定位权限不可用，可以拖动地图并使用准星选点。');
+    const denied = () => setNotice({ message: '定位权限不可用，可以拖动地图并使用准星选点。', kind: 'default' });
     page.addEventListener('location-denied', denied);
     return () => page.removeEventListener('location-denied', denied);
   }, []);
@@ -90,7 +91,7 @@ export function MapPage({ startAdding, onAddConsumed, initialSelectedId, onIniti
     const saved = await upsertPlace(place);
     setSelectedId(saved.id);
     setFormPlace(undefined);
-    setNotice('地点已加密保存');
+    setNotice({ message: '地点已加密保存', kind: 'default' });
   }
 
   async function removeSelected() {
@@ -173,10 +174,10 @@ export function MapPage({ startAdding, onAddConsumed, initialSelectedId, onIniti
       )}
 
       {formPlace !== undefined && session && <PlaceForm value={formPlace} lat={position.lat} lng={position.lng} deviceId={session.deviceId} onClose={() => setFormPlace(undefined)} onSave={saveForm} />}
-      {memoryPlace && session && <MemoryForm place={memoryPlace} frameNumber={snapshot.memories.length + 1} deviceId={session.deviceId} onClose={() => setMemoryPlace(null)} onSave={async (memory, files) => { const saved = await upsertMemory(memory); if (files.length > 0) await addPhotos(saved, files); setMemoryPlace(null); setNotice('回忆已存入胶片册'); }} />}
+      {memoryPlace && session && <MemoryForm place={memoryPlace} frameNumber={snapshot.memories.length + 1} deviceId={session.deviceId} onClose={() => setMemoryPlace(null)} onSave={async (memory, files) => { const saved = await upsertMemory(memory); if (files.length > 0) await addPhotos(saved, files); setMemoryPlace(null); setNotice({ message: '回忆已存入胶片册', kind: 'frame' }); }} />}
 
       {undoPlace && <div className="undo-toast" role="status"><span>地点已删除</span><button type="button" onClick={() => void undoDeletePlace(undoPlace).then(() => setUndoPlace(null))}><Undo2 aria-hidden="true" />撤销</button></div>}
-      {notice && <button className="notice-toast" type="button" onClick={() => setNotice(null)}>{notice}</button>}
+      {notice && <button className={notice.kind === 'frame' ? 'notice-toast frame-saved' : 'notice-toast'} type="button" onClick={() => setNotice(null)}>{notice.message}</button>}
     </div>
   );
 }

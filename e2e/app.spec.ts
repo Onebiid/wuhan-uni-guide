@@ -7,6 +7,9 @@ test('creates an encrypted workspace and completes the core map-memory flow', as
   page.on('console', (message) => { if (message.type() === 'error' && !message.text().includes('Content Security Policy')) consoleErrors.push(message.text()); });
   page.on('pageerror', (error) => consoleErrors.push(error.message));
 
+  await page.goto('/');
+  await expect(page.locator('.unlock-view')).toContainText('ROLL 01');
+  await expect(page.locator('.unlock-form')).toHaveCSS('box-shadow', 'none');
   await createWorkspace(page);
   await expect(page.getByLabel('视图切换')).toHaveCount(0);
   await expect(page.locator('.bottom-nav').getByRole('button', { name: '胶片', exact: true })).toBeVisible();
@@ -57,6 +60,9 @@ test('creates an encrypted workspace and completes the core map-memory flow', as
   await page.getByLabel('日期').fill('2026-07-20');
   await page.getByLabel('写下这一天').fill('地图与胶片册之间的完整流程。');
   await page.getByRole('button', { name: '存入回忆册' }).click();
+  const frameNotice = page.getByRole('button', { name: '回忆已存入胶片册' });
+  await expect(frameNotice).toHaveClass(/frame-saved/);
+  await frameNotice.click();
 
   const unexposedTicket = page.getByRole('button', { name: '测试约会地点，FRAME 001，2026 / 07 / 20，收起' });
   await expect(unexposedTicket).toBeVisible();
@@ -107,6 +113,19 @@ test('keeps primary controls inside the iPhone viewport', async ({ page }) => {
   expect(box?.x).toBeGreaterThanOrEqual(0);
   expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(393);
   await expect(page.getByRole('button', { name: '创建并进入' })).toHaveCSS('min-height', '50px');
+});
+
+test('keeps the new-frame sheet usable with a keyboard-sized viewport', async ({ page }) => {
+  await createWorkspace(page);
+  await page.setViewportSize({ width: 393, height: 520 });
+  await page.getByRole('button', { name: '添加地点' }).click();
+  await page.getByRole('button', { name: '确认位置' }).click();
+  const sheet = page.locator('.form-sheet');
+  await expect(sheet).toBeVisible();
+  const box = await sheet.boundingBox();
+  expect(box).not.toBeNull();
+  expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(520);
+  await expect(page.getByRole('button', { name: '保存地点' })).toBeVisible();
 });
 
 test('respects the reduced-motion preference', async ({ page }) => {

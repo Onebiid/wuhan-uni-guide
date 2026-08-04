@@ -43,13 +43,13 @@ export function MemoryForm({ place, value, frameNumber, deviceId, onClose, onSav
     <div className="sheet-backdrop" role="presentation">
       <section className="form-sheet" role="dialog" aria-modal="true" aria-labelledby="memory-form-title">
         <div className="sheet-grabber" aria-hidden="true" />
-        <header className="sheet-header"><div><p className="sheet-kicker">FRAME {String(frameNumber).padStart(3, '0')}</p><h2 id="memory-form-title">记录这次回忆</h2></div><button className="icon-button" type="button" onClick={onClose} aria-label="关闭"><X aria-hidden="true" /></button></header>
+        <header className="sheet-header"><div><p className="sheet-kicker">FRAME {String(frameNumber).padStart(3, '0')}</p><h2 id="memory-form-title">记录这次回忆</h2><p className="sheet-context">{place.name}</p></div><button className="icon-button" type="button" onClick={onClose} aria-label="关闭"><X aria-hidden="true" /></button></header>
         <form onSubmit={(event) => void submit(event)}>
           <label className="field"><span>标题</span><input ref={titleRef} required maxLength={100} value={title} onChange={(event) => setTitle(event.target.value)} /></label>
           <label className="field"><span>日期</span><input type="date" value={occurredOn} onChange={(event) => setOccurredOn(event.target.value)} /></label>
           <label className="field"><span>写下这一天</span><textarea rows={6} maxLength={5000} value={text} onChange={(event) => setText(event.target.value)} placeholder="天气、同行的人、记得最清楚的瞬间..." /></label>
           <label className="photo-input"><ImagePlus aria-hidden="true" /><span>选择照片</span><small>{files.length}/9</small><input type="file" accept="image/*" multiple onChange={(event) => setFiles(Array.from(event.target.files ?? []).slice(0, 9))} /></label>
-          {files.length > 0 && <div className="selected-files" aria-label="已选择照片">{files.map((file) => <span key={`${file.name}-${file.lastModified}`}>{file.name}</span>)}</div>}
+          {files.length > 0 && <div className="selected-files" aria-label="已选择照片">{files.map((file, index) => <span key={`${file.name}-${file.lastModified}`}><b>{String(index + 1).padStart(2, '0')}</b><i>{file.name}</i></span>)}</div>}
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="primary-command" type="submit" disabled={saving}>{saving ? '正在加密保存...' : '存入回忆册'}</button>
         </form>
