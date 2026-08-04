@@ -101,4 +101,23 @@ describe('MemoryDetail', () => {
     expect(mocks.revokeObjectURL).toHaveBeenNthCalledWith(1, 'blob:first');
     expect(mocks.revokeObjectURL).toHaveBeenNthCalledWith(2, 'blob:second');
   });
+
+  it('clears a reused detail when the memory transitions to no photos', async () => {
+    mocks.loadPhotoObjectUrl.mockResolvedValueOnce('blob:loaded');
+    const onClose = vi.fn();
+    const onMap = vi.fn();
+    const { rerender } = render(<MemoryDetail memory={memory} placeName="测试地点" onClose={onClose} onMap={onMap} />);
+
+    expect(await screen.findByRole('img', { name: '照片回忆照片 1' })).toHaveAttribute('src', 'blob:loaded');
+
+    const emptyMemory = { ...memory, photoIds: [] };
+    rerender(<MemoryDetail memory={emptyMemory} placeName="测试地点" onClose={onClose} onMap={onMap} />);
+
+    await waitFor(() => expect(screen.queryByRole('img', { name: '照片回忆照片 1' })).not.toBeInTheDocument());
+    expect(mocks.revokeObjectURL).toHaveBeenCalledTimes(1);
+    expect(mocks.revokeObjectURL).toHaveBeenCalledWith('blob:loaded');
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.queryByRole('img', { name: '照片回忆照片 1' })).not.toBeInTheDocument();
+    expect(mocks.revokeObjectURL).toHaveBeenCalledTimes(1);
+  });
 });

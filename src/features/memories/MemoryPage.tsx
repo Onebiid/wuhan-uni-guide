@@ -122,7 +122,11 @@ export function MemoryDetail({ memory, placeName, onClose, onMap }: { memory: Me
         setUrls(settledUrls.filter((url): url is string => url !== null));
       }
     };
-    if (session) {
+    if (memory.photoIds.length === 0) {
+      queueMicrotask(() => {
+        if (active) setUrls([]);
+      });
+    } else if (session) {
       memory.photoIds.forEach((id, index) => {
         void loadPhotoObjectUrl(session, id, memory.id)
           .then((value) => settlePhoto(index, value))
