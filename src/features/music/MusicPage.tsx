@@ -47,5 +47,59 @@ export function MusicPage() {
     setIndex((value) => (value + delta + snapshot.playlist.length) % snapshot.playlist.length);
   }
 
-  return <section className="utility-page music-page"><header className="utility-header"><p className="eyebrow">SHARED PLAYLIST</p><h1>一起听</h1><p>外部歌曲地址会同步，本机文件将在后续设备导入中单独管理。</p></header><div className="now-playing"><div className="record-disc"><Music2 aria-hidden="true" /></div><p>NOW PLAYING</p><h2>{current?.title ?? '还没有歌曲'}</h2><div className="player-controls"><button type="button" onClick={() => move(-1)} aria-label="上一首"><SkipBack aria-hidden="true" /></button><button className="play" type="button" onClick={() => void togglePlay()} aria-label={playing ? '暂停' : '播放'}>{playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}</button><button type="button" onClick={() => move(1)} aria-label="下一首"><SkipForward aria-hidden="true" /></button></div><audio ref={audioRef} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => move(1)} onError={() => setError('当前音频无法播放，请检查地址。')} /></div><form className="playlist-add" onSubmit={(event) => void addRemote(event)}><h2>添加外部歌曲</h2><label className="field"><span>歌名</span><input value={title} onChange={(event) => setTitle(event.target.value)} required maxLength={160} /></label><label className="field"><span>HTTPS 音频地址</span><input type="url" value={url} onChange={(event) => setUrl(event.target.value)} required placeholder="https://..." /></label>{error && <p className="form-error">{error}</p>}<button type="submit"><Plus aria-hidden="true" />添加到歌单</button></form><div className="playlist-list">{snapshot.playlist.map((item, itemIndex) => <div className={itemIndex === index ? 'track active' : 'track'} key={item.id}><span>{String(itemIndex + 1).padStart(2, '0')}</span><strong>{item.title}</strong><small>{item.source.kind === 'remote' ? 'CLOUD URL' : 'THIS DEVICE'}</small><button type="button" onClick={() => void remove(item.id)} aria-label={`删除${item.title}`}><Trash2 aria-hidden="true" /></button></div>)}</div></section>;
+  return (
+    <section className="utility-page music-page">
+      <header className="utility-header soundtrack-header">
+        <p className="eyebrow">OUR SOUNDTRACK · SIDE A</p>
+        <h1>一起听</h1>
+        <div className="utility-counter">
+          <span>{String(snapshot.playlist.length).padStart(2, '0')} TRACKS</span>
+          <i />
+          <span>PRIVATE PLAYLIST</span>
+        </div>
+      </header>
+
+      <div className="now-playing">
+        <div className="record-disc"><Music2 aria-hidden="true" /></div>
+        <p>NOW PLAYING</p>
+        <h2>{current?.title ?? '还没有歌曲'}</h2>
+        <div className="player-controls">
+          <button type="button" onClick={() => move(-1)} aria-label="上一首"><SkipBack aria-hidden="true" /></button>
+          <button className="play" type="button" onClick={() => void togglePlay()} aria-label={playing ? '暂停' : '播放'}>
+            {playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+          </button>
+          <button type="button" onClick={() => move(1)} aria-label="下一首"><SkipForward aria-hidden="true" /></button>
+        </div>
+        <audio
+          ref={audioRef}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onEnded={() => move(1)}
+          onError={() => setError('当前音频无法播放，请检查地址。')}
+        />
+      </div>
+
+      <form className="playlist-add" onSubmit={(event) => void addRemote(event)}>
+        <h2>添加外部歌曲</h2>
+        <label className="field"><span>歌名</span><input value={title} onChange={(event) => setTitle(event.target.value)} required maxLength={160} /></label>
+        <label className="field"><span>HTTPS 音频地址</span><input type="url" value={url} onChange={(event) => setUrl(event.target.value)} required placeholder="https://..." /></label>
+        {error && <p className="form-error">{error}</p>}
+        <button type="submit"><Plus aria-hidden="true" />添加到歌单</button>
+      </form>
+
+      <div className="playlist-list">
+        {snapshot.playlist.map((item, itemIndex) => {
+          const trackNumber = String(itemIndex + 1).padStart(2, '0');
+          return (
+            <div className={itemIndex === index ? 'track active' : 'track'} key={item.id}>
+              <span>{trackNumber}</span>
+              <strong>{item.title}</strong>
+              <small>SIDE A / TRACK {trackNumber} · {item.source.kind === 'remote' ? 'CLOUD URL' : 'THIS DEVICE'}</small>
+              <button type="button" onClick={() => void remove(item.id)} aria-label={'删除' + item.title}><Trash2 aria-hidden="true" /></button>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
 }

@@ -128,6 +128,22 @@ test('keeps the new-frame sheet usable with a keyboard-sized viewport', async ({
   await expect(page.getByRole('button', { name: '保存地点' })).toBeVisible();
 });
 
+test('uses soundtrack and archive-index presentation without changing commands', async ({ page }) => {
+  await createWorkspace(page);
+  await page.getByRole('button', { name: '声音', exact: true }).click();
+  await expect(page.getByText('OUR SOUNDTRACK · SIDE A')).toBeVisible();
+  await expect(page.getByRole('button', { name: '播放' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '上一首' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '下一首' })).toBeVisible();
+  await page.getByRole('button', { name: '档案', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '档案设置' })).toBeVisible();
+  await expect(page.getByText('01 / RELATIONSHIP')).toBeVisible();
+  await expect(page.getByRole('button', { name: '保存日期' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^导入旧版 JSON/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^导出可读备份/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /立即锁定/ })).toBeVisible();
+});
+
 test('respects the reduced-motion preference', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
