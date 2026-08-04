@@ -101,7 +101,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 
 .map-page { position: fixed; inset: 0; overflow: hidden; background: #dde4e2; }
 .map-surface, .map-canvas { position: absolute; inset: 0; }
-.map-canvas { background-color: #dbe2df; background-image: linear-gradient(rgba(22, 39, 74, 0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(22, 39, 74, 0.055) 1px, transparent 1px); background-size: 28px 28px; }
+.map-canvas { background-color: #dbe2df; }
 .map-tile-status { position: absolute; z-index: 470; top: calc(216px + var(--safe-top)); left: 50%; min-height: 32px; display: flex; align-items: center; gap: 7px; padding: 6px 10px; border: 1px solid rgba(22, 39, 74, 0.14); border-radius: 4px; background: rgba(255, 255, 255, 0.94); box-shadow: 0 4px 12px rgba(18, 35, 66, 0.1); color: var(--muted); font-size: 10px; font-weight: 700; transform: translateX(-50%); white-space: nowrap; }
 .map-tile-status span { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--route-gold); }
 .map-tile-status.error span, .map-tile-status.unconfigured span { background: var(--brick-red); }
@@ -292,6 +292,10 @@ body:has(.sheet-backdrop) .bottom-nav { opacity: 0; pointer-events: none; }
 
 @keyframes tile-status-pulse { 50% { opacity: 0.35; transform: scale(0.75); } }
 @keyframes frame-saved { from { opacity: 0; transform: translateX(-50%) scale(0.96); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
+
+@media (max-height: 600px) {
+  .form-sheet { max-height: 100dvh; }
+}
 
 @media (min-width: 760px) {
   .app-shell { max-width: 1180px; margin: 0 auto; border-inline: 1px solid var(--line); }
