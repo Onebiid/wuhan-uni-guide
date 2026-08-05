@@ -1,5 +1,7 @@
 import { exports } from 'cloudflare:workers';
+import { createExecutionContext, env } from 'cloudflare:test';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { handleRequest } from '../src/index';
 
 const origin = 'https://onebiid.github.io';
 let workspaceId = '';
@@ -28,6 +30,61 @@ describe('sync worker', () => {
     expect(await response.json()).toEqual({ id: workspaceId, salt: bytesToBase64(new Uint8Array(16).fill(3)), kdfIterations: 600_000 });
   });
 
+  it('applies caller-derived and identifier budgets to public workspace routes', async () => {
+    const keys: string[] = [];
+    let deniedKey: string | null = null;
+    const rateLimiter: RateLimit = {
+      limit: ({ key }) => {
+        keys.push(key);
+        return Promise.resolve({ success: key !== deniedKey });
+      },
+    };
+    const testEnv: Env = { ...env, SYNC_RATE_LIMITER: rateLimiter };
+
+    const discover = await handleRequest(new Request(`https://sync.example/v1/workspaces/discover/${discoveryId}`, {
+      headers: { Origin: origin, 'CF-Connecting-IP': '203.0.113.7' },
+    }), testEnv, createExecutionContext());
+    expect(discover.status).toBe(200);
+    expect(keys).toEqual([
+      'public:discover:caller:203.0.113.7',
+      `discover:${discoveryId}`,
+    ]);
+
+    keys.length = 0;
+    const createdId = `workspace_${crypto.randomUUID().replaceAll('-', '')}`;
+    const callerKey = 'public:create:caller:203.0.113.8';
+    const createBody = {
+      id: createdId,
+      salt: bytesToBase64(new Uint8Array(16).fill(3)),
+      authVerifier: bytesToBase64(new Uint8Array(32).fill(9)),
+      kdfIterations: 600_000,
+    };
+    const created = await handleRequest(new Request('https://sync.example/v1/workspaces', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: origin, 'CF-Connecting-IP': '203.0.113.8' },
+      body: JSON.stringify(createBody),
+    }), testEnv, createExecutionContext());
+    expect(created.status).toBe(201);
+    expect(keys).toEqual([callerKey, `setup:${createdId}`]);
+
+    keys.length = 0;
+    const malformed = await handleRequest(new Request('https://sync.example/v1/workspaces/discover/' + discoveryId, {
+      headers: { Origin: origin, 'CF-Connecting-IP': 'deadbeef' },
+    }), testEnv, createExecutionContext());
+    expect(malformed.status).toBe(200);
+    expect(keys).toEqual([
+      'public:discover:caller:unknown',
+      'discover:' + discoveryId,
+    ]);
+    keys.length = 0;
+    deniedKey = 'public:discover:caller:unknown';
+    const limited = await handleRequest(new Request(`https://sync.example/v1/workspaces/discover/${discoveryId}`, {
+      headers: { Origin: origin },
+    }), testEnv, createExecutionContext());
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get('Access-Control-Allow-Origin')).toBe(origin);
+    expect(keys).toEqual([deniedKey]);
+  });
   it('does not reveal whether an invalid discovery identifier exists', async () => {
     expect((await request('/v1/workspaces/discover/not-valid', { headers: { Origin: origin } })).status).toBe(404);
   });

@@ -64,8 +64,9 @@ app.post('/v1/workspaces', async (context) => {
   const body = await readBoundedJson(context.req.raw, 4_096);
   const parsed = workspaceSchema.safeParse(body);
   if (!parsed.success) return jsonError(context, 400, 'invalid_workspace');
-  const allowed = await context.env.SYNC_RATE_LIMITER.limit({ key: `setup:${parsed.data.id}` });
-  if (!allowed.success) return jsonError(context, 429, 'rate_limited');
+  if (!(await consumePublicRateLimit(context, 'create', `setup:${parsed.data.id}`))) {
+    return jsonError(context, 429, 'rate_limited');
+  }
   try {
     await context.env.DB.prepare(
       'INSERT INTO workspaces (id, auth_verifier, salt, kdf_iterations, discovery_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
@@ -91,8 +92,9 @@ app.post('/v1/workspaces', async (context) => {
 app.get('/v1/workspaces/discover/:discoveryId', async (context) => {
   const discoveryId = context.req.param('discoveryId');
   if (!discoveryPattern.test(discoveryId)) return jsonError(context, 404, 'workspace_not_found');
-  const allowed = await context.env.SYNC_RATE_LIMITER.limit({ key: `discover:${discoveryId}` });
-  if (!allowed.success) return jsonError(context, 429, 'rate_limited');
+  if (!(await consumePublicRateLimit(context, 'discover', `discover:${discoveryId}`))) {
+    return jsonError(context, 429, 'rate_limited');
+  }
   const row = await context.env.DB.prepare(
     'SELECT id, salt, kdf_iterations FROM workspaces WHERE discovery_id = ?',
   ).bind(discoveryId).first<{ id: string; salt: string; kdf_iterations: number }>();
@@ -208,9 +210,13 @@ app.onError((error, context) => {
   return jsonError(context, 500, 'internal_error');
 });
 
+export function handleRequest(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  return Promise.resolve(app.fetch(request, env, ctx));
+}
+
 export default {
   fetch(request, env, ctx) {
-    return app.fetch(request, env, ctx);
+    return handleRequest(request, env, ctx);
   },
   scheduled(_event, env, ctx) {
     ctx.waitUntil(cleanExpiredTombstones(env));
@@ -244,6 +250,39 @@ class HTTPException extends Error {
   constructor(readonly status: 400 | 413, readonly code: string) { super(code); }
 }
 
+async function consumePublicRateLimit<P extends string, I extends Input>(
+  context: Context<AppBindings, P, I>,
+  route: 'create' | 'discover',
+  identifierKey: string,
+): Promise<boolean> {
+  const caller = trustedCaller(context.req.header('CF-Connecting-IP'));
+  const callerBudget = await context.env.SYNC_RATE_LIMITER.limit({ key: `public:${route}:caller:${caller}` });
+  if (!callerBudget.success) return false;
+  const identifierBudget = await context.env.SYNC_RATE_LIMITER.limit({ key: identifierKey });
+  return identifierBudget.success;
+}
+
+function trustedCaller(value: string | undefined): string {
+  const normalized = value?.trim().toLowerCase() ?? '';
+  return normalizeIpv4(normalized) ?? normalizeIpv6(normalized) ?? 'unknown';
+}
+
+function normalizeIpv4(value: string): string | null {
+  const parts = value.split('.');
+  if (parts.length !== 4 || parts.some((part) => !/^(0|[1-9]\d{0,2})$/.test(part))) return null;
+  const octets = parts.map(Number);
+  return octets.every((octet) => octet <= 255) ? octets.join('.') : null;
+}
+
+function normalizeIpv6(value: string): string | null {
+  if (!value.includes(':') || value.includes('%')) return null;
+  try {
+    const hostname = new URL('http://[' + value + ']/').hostname;
+    return hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : null;
+  } catch {
+    return null;
+  }
+}
 function resolveAllowedOrigin(origin: string | undefined, configured: string): string | null {
   if (!origin) return null;
   return configured.split(',').map((value) => value.trim()).includes(origin) ? origin : null;

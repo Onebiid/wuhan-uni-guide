@@ -203,7 +203,7 @@ export async function restorePlace(session: UnlockedWorkspace, value: Place): Pr
 }
 
 export async function pendingMutationCount(workspaceId: string): Promise<number> {
-  return db.mutations.where('workspaceId').equals(workspaceId).and((mutation) => mutation.state === 'pending').count();
+  return db.mutations.where('workspaceId').equals(workspaceId).count();
 }
 
 export async function addEncryptedPhoto(session: UnlockedWorkspace, memoryId: string, file: File): Promise<string> {
@@ -249,7 +249,7 @@ async function saveVersionedRecord<T extends { revision: number }>(
   const key = encryptedRecordKey(session.workspace.id, kind, id);
   const pending = await db.mutations.where('recordKey').equals(key).first();
   const existing = await db.records.get(key);
-  const baseRevision = pending?.baseRevision ?? existing?.revision ?? value.revision;
+  const baseRevision = pending?.remoteRevision ?? pending?.baseRevision ?? existing?.revision ?? value.revision;
   const next = withRevision(baseRevision + 1);
   await saveRecord(session, kind, id, next, baseRevision);
   return next;
@@ -265,7 +265,7 @@ async function saveRecord(
   const key = encryptedRecordKey(session.workspace.id, kind, id);
   const pending = await db.mutations.where('recordKey').equals(key).first();
   const existing = await db.records.get(key);
-  const baseRevision = explicitBaseRevision ?? pending?.baseRevision ?? existing?.revision ?? 0;
+  const baseRevision = explicitBaseRevision ?? pending?.remoteRevision ?? pending?.baseRevision ?? existing?.revision ?? 0;
   const targetRevision = baseRevision + 1;
   const envelope = await encryptJson(value, session.keys.encryptionKey, recordAssociatedData(kind, id, targetRevision));
   const now = Date.now();
@@ -287,6 +287,7 @@ async function saveRecord(
     kind,
     recordId: id,
     baseRevision,
+    generation: (pending?.generation ?? 0) + 1,
     createdAt: pending?.createdAt ?? now,
     attempts: 0,
     nextAttemptAt: now,

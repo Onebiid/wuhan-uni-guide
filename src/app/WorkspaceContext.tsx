@@ -23,7 +23,7 @@ import {
 } from '../data/repository';
 import type { LocalWorkspace } from '../data/database';
 import type { Memory, Place, PlaylistItem, RelationshipSettings } from '../domain/models';
-import { syncWorkspace, type SyncOutcome } from '../services/sync';
+import { refreshWorkspace, syncWorkspace, type SyncOutcome } from '../services/sync';
 
 type BootState = 'loading' | 'setup' | 'locked' | 'unlocked';
 
@@ -82,6 +82,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         const trustedSession = await restoreTrustedSession();
         if (!active) return;
         if (trustedSession) {
+          const initialOutcome = await refreshWorkspace(trustedSession);
           const nextSnapshot = await loadSnapshot(trustedSession);
           const nextPendingCount = await pendingMutationCount(trustedSession.workspace.id);
           if (!active) return;
@@ -90,6 +91,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           setWorkspace(trustedSession.workspace);
           setSnapshot(nextSnapshot);
           setPendingCount(nextPendingCount);
+          setSyncStatus(initialOutcome);
           setBootState('unlocked');
           return;
         }
@@ -117,6 +119,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   const load = useCallback(async (nextSession: UnlockedWorkspace, trustedDevice: boolean) => {
+    const initialOutcome = await refreshWorkspace(nextSession);
     const nextSnapshot = await loadSnapshot(nextSession);
     const nextPendingCount = await pendingMutationCount(nextSession.workspace.id);
     if (trustedDevice) await rememberTrustedSession(nextSession);
@@ -126,6 +129,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setWorkspace(nextSession.workspace);
     setSnapshot(nextSnapshot);
     setPendingCount(nextPendingCount);
+    setSyncStatus(initialOutcome);
     setBootState('unlocked');
   }, []);
 

@@ -44,6 +44,8 @@ export interface PendingMutation {
   kind: SyncRecordKind;
   recordId: string;
   baseRevision: number;
+  remoteRevision?: number;
+  generation: number;
   createdAt: number;
   attempts: number;
   nextAttemptAt: number;
