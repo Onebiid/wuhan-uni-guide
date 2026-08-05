@@ -18,6 +18,33 @@ const syncResponseSchema = z.object({
   records: z.array(remoteRecordSchema),
 });
 
+const remoteWorkspaceSchema = z.object({
+  id: z.string().min(1).max(128),
+  salt: z.string().min(20).max(64),
+  kdfIterations: z.number().int().min(100_000).max(2_000_000),
+});
+
+export interface RemoteWorkspaceMetadata {
+  id: string;
+  salt: string;
+  kdfIterations: number;
+}
+
+export async function discoverWorkspace(discoveryId: string): Promise<RemoteWorkspaceMetadata | null> {
+  const api = getSyncApi();
+  if (!api) return null;
+  const response = await fetch(`${api}/v1/workspaces/discover/${encodeURIComponent(discoveryId)}`);
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Workspace discovery failed: ${response.status}`);
+  return remoteWorkspaceSchema.parse(await response.json());
+}
+
+export async function verifyWorkspaceAccess(session: UnlockedWorkspace): Promise<void> {
+  const api = getSyncApi();
+  if (!api) throw new Error('Remote sync is unavailable');
+  const response = await fetch(`${api}/v1/sync?cursor=0`, { headers: authHeaders(session) });
+  if (!response.ok) throw new Error(`Workspace authentication failed: ${response.status}`);
+}
 export type SyncOutcome = 'disabled' | 'synced' | 'pending' | 'conflict' | 'error';
 
 export async function syncWorkspace(session: UnlockedWorkspace): Promise<SyncOutcome> {
@@ -73,9 +100,10 @@ async function registerWorkspace(api: string, session: UnlockedWorkspace): Promi
       salt: session.workspace.salt,
       authVerifier: session.workspace.authVerifier,
       kdfIterations: session.workspace.kdfIterations,
+      ...(session.workspace.discoveryId ? { discoveryId: session.workspace.discoveryId } : {}),
     }),
   });
-  if (!response.ok && response.status !== 409) throw new Error(`Workspace registration failed: ${response.status}`);
+  if (!response.ok) throw new Error(`Workspace registration failed: ${response.status}`);
 }
 
 async function pushMutations(api: string, session: UnlockedWorkspace): Promise<boolean> {

@@ -40,6 +40,16 @@ export function createSalt(): string {
   return bytesToBase64(salt);
 }
 
+export async function deriveDiscoveryId(passphrase: string): Promise<string> {
+  const normalized = passphrase.normalize('NFKC');
+  const material = await crypto.subtle.importKey('raw', encoder.encode(normalized), 'PBKDF2', false, ['deriveBits']);
+  const digest = new Uint8Array(await crypto.subtle.deriveBits({
+    name: 'PBKDF2', hash: 'SHA-256', iterations: 210_000,
+    salt: encoder.encode('whu-couple-map/discovery/v1'),
+  }, material, 256));
+  return [...digest].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 export async function deriveWorkspaceKeys(
   passphrase: string,
   saltBase64: string,

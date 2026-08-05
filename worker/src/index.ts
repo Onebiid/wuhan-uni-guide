@@ -9,12 +9,14 @@ type AppBindings = { Bindings: Env; Variables: Variables };
 const app = new Hono<AppBindings>();
 
 const idPattern = /^[a-zA-Z0-9_-]{1,128}$/;
+const discoveryPattern = /^[a-f0-9]{64}$/;
 const base64Pattern = /^[a-zA-Z0-9+/]+={0,2}$/;
 const workspaceSchema = z.object({
   id: z.string().regex(idPattern),
   salt: z.string().min(20).max(64).regex(base64Pattern),
   authVerifier: z.string().min(40).max(64).regex(base64Pattern),
   kdfIterations: z.number().int().min(100_000).max(2_000_000),
+  discoveryId: z.string().regex(discoveryPattern).optional(),
 });
 const recordSchema = z.object({
   baseRevision: z.number().int().nonnegative(),
@@ -66,17 +68,39 @@ app.post('/v1/workspaces', async (context) => {
   if (!allowed.success) return jsonError(context, 429, 'rate_limited');
   try {
     await context.env.DB.prepare(
-      'INSERT INTO workspaces (id, auth_verifier, salt, kdf_iterations, created_at) VALUES (?, ?, ?, ?, ?)',
-    ).bind(parsed.data.id, parsed.data.authVerifier, parsed.data.salt, parsed.data.kdfIterations, Date.now()).run();
+      'INSERT INTO workspaces (id, auth_verifier, salt, kdf_iterations, discovery_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    ).bind(parsed.data.id, parsed.data.authVerifier, parsed.data.salt, parsed.data.kdfIterations, parsed.data.discoveryId ?? null, Date.now()).run();
   } catch (error) {
-    if (error instanceof Error && error.message.includes('UNIQUE')) return jsonError(context, 409, 'workspace_exists');
-    throw error;
+    if (!(error instanceof Error) || !error.message.includes('UNIQUE') || !parsed.data.discoveryId) {
+      if (error instanceof Error && error.message.includes('UNIQUE')) return jsonError(context, 409, 'workspace_exists');
+      throw error;
+    }
+    const existing = await context.env.DB.prepare('SELECT auth_verifier FROM workspaces WHERE id = ?').bind(parsed.data.id).first<{ auth_verifier: string }>();
+    if (!existing || !verifiersMatch(parsed.data.authVerifier, existing.auth_verifier)) return jsonError(context, 409, 'workspace_exists');
+    try {
+      await context.env.DB.prepare('UPDATE workspaces SET discovery_id = ? WHERE id = ?').bind(parsed.data.discoveryId, parsed.data.id).run();
+    } catch (updateError) {
+      if (updateError instanceof Error && updateError.message.includes('UNIQUE')) return jsonError(context, 409, 'workspace_exists');
+      throw updateError;
+    }
+    return context.json({ ok: true }, 200);
   }
   return context.json({ ok: true }, 201);
 });
 
+app.get('/v1/workspaces/discover/:discoveryId', async (context) => {
+  const discoveryId = context.req.param('discoveryId');
+  if (!discoveryPattern.test(discoveryId)) return jsonError(context, 404, 'workspace_not_found');
+  const allowed = await context.env.SYNC_RATE_LIMITER.limit({ key: `discover:${discoveryId}` });
+  if (!allowed.success) return jsonError(context, 429, 'rate_limited');
+  const row = await context.env.DB.prepare(
+    'SELECT id, salt, kdf_iterations FROM workspaces WHERE discovery_id = ?',
+  ).bind(discoveryId).first<{ id: string; salt: string; kdf_iterations: number }>();
+  if (!row) return jsonError(context, 404, 'workspace_not_found');
+  return context.json({ id: row.id, salt: row.salt, kdfIterations: row.kdf_iterations });
+});
 app.use('/v1/*', async (context, next) => {
-  if (context.req.path === '/v1/workspaces' && context.req.method === 'POST') return next();
+  if ((context.req.path === '/v1/workspaces' && context.req.method === 'POST') || (context.req.path.startsWith('/v1/workspaces/discover/') && context.req.method === 'GET')) return next();
   const workspaceId = context.req.header('X-Workspace-Id') ?? '';
   const authorization = context.req.header('Authorization') ?? '';
   if (!idPattern.test(workspaceId) || !authorization.startsWith('Bearer ')) return jsonError(context, 401, 'unauthorized');
@@ -240,6 +264,15 @@ function parseCursor(value: string | undefined): number | null {
   return Number.isFinite(cursor) && cursor >= 0 ? cursor : null;
 }
 
+function verifiersMatch(providedVerifier: string, expectedVerifier: string): boolean {
+  try {
+    const provided = base64ToBytes(providedVerifier);
+    const expected = base64ToBytes(expectedVerifier);
+    return provided.byteLength === expected.byteLength && timingSafeEqual(provided, expected);
+  } catch {
+    return false;
+  }
+}
 async function verifyAuthToken(token: string, expectedVerifier: string): Promise<boolean> {
   try {
     const tokenBytes = base64ToBytes(token);

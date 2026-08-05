@@ -7,6 +7,7 @@ export interface LocalWorkspace {
   salt: string;
   kdfIterations: number;
   authVerifier: string;
+  discoveryId?: string;
   createdAt: number;
   schemaVersion: number;
 }
@@ -54,6 +55,13 @@ export interface LocalSetting {
   value: unknown;
 }
 
+export interface TrustedSession {
+  workspaceId: string;
+  encryptionKey: CryptoKey;
+  authToken: string;
+  deviceId: string;
+}
+
 class CoupleMapDatabase extends Dexie {
   workspaces!: EntityTable<LocalWorkspace, 'id'>;
   records!: EntityTable<EncryptedRecord, 'key'>;
@@ -72,6 +80,13 @@ class CoupleMapDatabase extends Dexie {
     });
     this.version(2).stores({
       workspaces: '&id, createdAt',
+      records: '&key, workspaceId, kind, id, updatedAt, deletedAt',
+      media: '&key, workspaceId, id, recordId, createdAt, syncState',
+      mutations: '&id, workspaceId, recordKey, state, nextAttemptAt',
+      settings: '&key',
+    });
+    this.version(3).stores({
+      workspaces: '&id, createdAt, discoveryId',
       records: '&key, workspaceId, kind, id, updatedAt, deletedAt',
       media: '&key, workspaceId, id, recordId, createdAt, syncState',
       mutations: '&id, workspaceId, recordKey, state, nextAttemptAt',

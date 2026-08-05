@@ -4,22 +4,62 @@ import { beforeEach, describe, expect, it } from 'vitest';
 const origin = 'https://onebiid.github.io';
 let workspaceId = '';
 let authToken = '';
+let discoveryId = '';
 
 beforeEach(async () => {
   workspaceId = `workspace_${crypto.randomUUID().replaceAll('-', '')}`;
   const bytes = new Uint8Array(32);
   bytes.fill(7);
   authToken = bytesToBase64(bytes);
+  discoveryId = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '');
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
   const response = await request('/v1/workspaces', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Origin: origin },
-    body: JSON.stringify({ id: workspaceId, salt: bytesToBase64(new Uint8Array(16).fill(3)), authVerifier: bytesToBase64(digest), kdfIterations: 600_000 }),
+    body: JSON.stringify({ id: workspaceId, salt: bytesToBase64(new Uint8Array(16).fill(3)), authVerifier: bytesToBase64(digest), kdfIterations: 600_000, discoveryId }),
   });
   expect(response.status).toBe(201);
 });
 
 describe('sync worker', () => {
+  it('discovers public key-derivation metadata without exposing the verifier', async () => {
+    const response = await request(`/v1/workspaces/discover/${discoveryId}`, { headers: { Origin: origin } });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ id: workspaceId, salt: bytesToBase64(new Uint8Array(16).fill(3)), kdfIterations: 600_000 });
+  });
+
+  it('does not reveal whether an invalid discovery identifier exists', async () => {
+    expect((await request('/v1/workspaces/discover/not-valid', { headers: { Origin: origin } })).status).toBe(404);
+  });
+
+  it('adds discovery metadata to an existing workspace only when its verifier matches', async () => {
+    const existingWorkspaceId = `workspace_${crypto.randomUUID().replaceAll('-', '')}`;
+    const salt = bytesToBase64(new Uint8Array(16).fill(6));
+    const verifier = bytesToBase64(new Uint8Array(await crypto.subtle.digest('SHA-256', new Uint8Array(32).fill(8))));
+    const newDiscoveryId = bytesToHex(new Uint8Array(32).fill(10));
+    const existing = await request('/v1/workspaces', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: origin },
+      body: JSON.stringify({ id: existingWorkspaceId, salt, authVerifier: verifier, kdfIterations: 600_000 }),
+    });
+    expect(existing.status).toBe(201);
+
+    const rejected = await request('/v1/workspaces', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: origin },
+      body: JSON.stringify({ id: existingWorkspaceId, salt, authVerifier: bytesToBase64(new Uint8Array(32).fill(4)), kdfIterations: 600_000, discoveryId: newDiscoveryId }),
+    });
+    expect(rejected.status).toBe(409);
+    expect((await request(`/v1/workspaces/discover/${newDiscoveryId}`, { headers: { Origin: origin } })).status).toBe(404);
+
+    const attached = await request('/v1/workspaces', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: origin },
+      body: JSON.stringify({ id: existingWorkspaceId, salt, authVerifier: verifier, kdfIterations: 600_000, discoveryId: newDiscoveryId }),
+    });
+    expect(attached.status).toBe(200);
+    expect(await (await request(`/v1/workspaces/discover/${newDiscoveryId}`, { headers: { Origin: origin } })).json()).toEqual({ id: existingWorkspaceId, salt, kdfIterations: 600_000 });
+  });
   it('rejects origins outside the deployment allowlist', async () => {
     const response = await request('/health', { headers: { Origin: 'https://attacker.example' } });
     expect(response.status).toBe(403);
@@ -101,4 +141,8 @@ function bytesToBase64(bytes: Uint8Array): string {
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary);
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }

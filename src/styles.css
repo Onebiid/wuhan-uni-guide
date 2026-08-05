@@ -72,6 +72,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .unlock-intro h1 { margin: 8px 0 8px; font: 700 34px/1.2 "Songti SC", "STSong", serif; color: var(--ink); }
 .unlock-intro > p:last-child { margin: 0; color: var(--muted); }
 .unlock-form { max-width: 480px; margin: 0 auto; padding: 18px 0 0; border: 0; border-top: 1px solid var(--ink); border-radius: 0; background: transparent; box-shadow: none; }
+.workspace-mode { display: grid; grid-template-columns: 1fr 1fr; min-height: 44px; margin: 0 0 18px; border: 1px solid var(--ink); border-radius: 4px; overflow: hidden; }
+.workspace-mode button { min-width: 0; border: 0; border-right: 1px solid var(--ink); background: transparent; color: var(--muted); font: 800 11px/1.2 "DIN Alternate", ui-monospace, monospace; cursor: pointer; }
+.workspace-mode button:last-child { border-right: 0; }
+.workspace-mode button.is-active { background: var(--ink); color: var(--paper); }
+.workspace-mode button:focus-visible { position: relative; outline: 3px solid var(--campus-blue); outline-offset: -3px; }
 .unlock-privacy { display: flex; align-items: center; gap: 8px; margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; line-height: 1.45; }
 .unlock-privacy svg { flex: none; color: var(--campus-green); }
 .form-heading { display: flex; gap: 12px; align-items: flex-start; padding-bottom: 18px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
@@ -86,6 +91,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .input-with-icon svg { position: absolute; top: 15px; left: 12px; color: var(--muted); pointer-events: none; }
 .input-with-icon input { padding-left: 40px; }
 .date-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.trusted-device { display: flex; align-items: flex-start; gap: 10px; margin: 2px 0 16px; padding: 11px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--ink); cursor: pointer; }
+.trusted-device input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--campus-blue); flex: none; }
+.trusted-device span { display: grid; gap: 3px; }
+.trusted-device strong { font-size: 12px; }
+.trusted-device small { color: var(--muted); font-size: 10px; line-height: 1.45; }
 .form-error { margin: -2px 0 14px; padding: 10px; border-left: 3px solid var(--brick-red); background: #f9eef0; color: #7d2934; font-size: 12px; line-height: 1.45; }
 
 .film-frame { position: relative; border: 1px solid var(--ink); background: var(--surface); color: var(--ink); }

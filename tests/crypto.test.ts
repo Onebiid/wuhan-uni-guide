@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createSalt, decryptJson, deriveWorkspaceKeys, encryptJson, recordAssociatedData } from '../src/security/crypto';
+import { createSalt, decryptJson, deriveDiscoveryId, deriveWorkspaceKeys, encryptJson, recordAssociatedData } from '../src/security/crypto';
 
 describe('encrypted records', () => {
+  it('derives a stable non-secret discovery identifier', async () => {
+    expect(await deriveDiscoveryId('shared passphrase')).toMatch(/^[a-f0-9]{64}$/);
+    expect(await deriveDiscoveryId('shared passphrase')).toBe(await deriveDiscoveryId('shared passphrase'));
+  });
+
   it('derives separated keys and round-trips JSON', async () => {
     const keys = await deriveWorkspaceKeys('a shared test passphrase', createSalt(), 1_000);
     const associatedData = recordAssociatedData('place', 'place_1', 1);

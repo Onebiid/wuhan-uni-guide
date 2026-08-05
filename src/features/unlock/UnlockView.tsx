@@ -1,30 +1,35 @@
 import { useState, type FormEvent } from 'react';
-import { KeyRound, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { KeyRound, LockKeyhole, ShieldCheck, UsersRound } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
 
 export function UnlockView() {
-  const { bootState, error, setup, unlock } = useWorkspace();
+  const { bootState, error, join, setup, unlock } = useWorkspace();
   const isSetup = bootState === 'setup';
+  const [mode, setMode] = useState<'create' | 'join'>('join');
+  const isJoin = isSetup && mode === 'join';
   const [passphrase, setPassphrase] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [metOn, setMetOn] = useState('');
   const [togetherOn, setTogetherOn] = useState('');
+  const [trustedDevice, setTrustedDevice] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLocalError(null);
-    if (isSetup && passphrase !== confirmation) {
+    if (isSetup && !isJoin && passphrase !== confirmation) {
       setLocalError('两次输入的共同口令不一致');
       return;
     }
     setSubmitting(true);
     try {
-      if (isSetup) {
-        await setup(passphrase, { metOn: metOn || null, togetherOn: togetherOn || null, autoLockMinutes: 15 });
+      if (isJoin) {
+        await join(passphrase, trustedDevice);
+      } else if (isSetup) {
+        await setup(passphrase, { metOn: metOn || null, togetherOn: togetherOn || null, autoLockMinutes: 15 }, trustedDevice);
       } else {
-        await unlock(passphrase);
+        await unlock(passphrase, trustedDevice);
       }
     } catch {
       // The provider exposes a user-safe error.
@@ -44,11 +49,21 @@ export function UnlockView() {
       </section>
 
       <form className="unlock-form" onSubmit={(event) => void handleSubmit(event)}>
+        {isSetup && (
+          <div className="workspace-mode" role="group" aria-label="空间操作">
+            <button aria-pressed={!isJoin} className={!isJoin ? 'is-active' : undefined} type="button" onClick={() => setMode('create')}>
+              创建新空间
+            </button>
+            <button aria-pressed={isJoin} className={isJoin ? 'is-active' : undefined} type="button" onClick={() => setMode('join')}>
+              加入已有空间
+            </button>
+          </div>
+        )}
         <div className="form-heading">
-          {isSetup ? <ShieldCheck aria-hidden="true" /> : <LockKeyhole aria-hidden="true" />}
+          {isJoin ? <UsersRound aria-hidden="true" /> : isSetup ? <ShieldCheck aria-hidden="true" /> : <LockKeyhole aria-hidden="true" />}
           <div>
-            <h2>{isSetup ? '创建安全空间' : '欢迎回来'}</h2>
-            <p>{isSetup ? '口令无法由服务器找回，请妥善保存。' : '解锁密钥只保留在这次使用期间。'}</p>
+            <h2>{isJoin ? '加入共享空间' : isSetup ? '创建安全空间' : '欢迎回来'}</h2>
+            <p>{isJoin ? '输入对方提供的共同口令，即可同步你们的地图与回忆。' : isSetup ? '口令无法由服务器找回，请妥善保存。' : '使用共同口令解锁这张地图与回忆。'}</p>
           </div>
         </div>
 
@@ -58,7 +73,7 @@ export function UnlockView() {
             <KeyRound aria-hidden="true" size={18} />
             <input
               type="password"
-              autoComplete={isSetup ? 'new-password' : 'current-password'}
+              autoComplete={isJoin ? 'current-password' : isSetup ? 'new-password' : 'current-password'}
               minLength={10}
               required
               value={passphrase}
@@ -68,7 +83,7 @@ export function UnlockView() {
           </div>
         </label>
 
-        {isSetup && (
+        {isSetup && !isJoin && (
           <>
             <label className="field">
               <span>再次输入</span>
@@ -81,11 +96,15 @@ export function UnlockView() {
           </>
         )}
 
+        <label className="trusted-device">
+          <input type="checkbox" checked={trustedDevice} onChange={(event) => setTrustedDevice(event.target.checked)} aria-label="信任此设备" />
+          <span><strong>信任此设备</strong><small>保留加密密钥，下次可直接进入；取消后关闭页面即需重新输入口令。</small></span>
+        </label>
         {(localError || error) && <p className="form-error" role="alert">{localError ?? error}</p>}
         <button className="primary-command" type="submit" disabled={submitting}>
-          {submitting ? '正在建立密钥...' : isSetup ? '创建并进入' : '解锁地图'}
+          {submitting ? '正在建立密钥...' : isJoin ? '加入共享空间' : isSetup ? '创建并进入' : '解锁地图'}
         </button>
-        <p className="unlock-privacy"><ShieldCheck aria-hidden="true" size={18} />密钥只保留在当前设备内存，离开后自动锁定。</p>
+        <p className="unlock-privacy"><ShieldCheck aria-hidden="true" size={18} />{trustedDevice ? '解锁密钥会安全保存在当前设备，手动或自动锁定后清除。' : '本次仅在当前会话保留密钥，关闭页面后需要再次输入口令。'}</p>
       </form>
     </main>
   );

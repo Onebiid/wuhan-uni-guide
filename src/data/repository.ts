@@ -14,6 +14,7 @@ import {
   DEFAULT_KDF_ITERATIONS,
   createSalt,
   decryptJson,
+  deriveDiscoveryId,
   deriveWorkspaceKeys,
   encryptJson,
   recordAssociatedData,
@@ -22,12 +23,20 @@ import {
   encryptBytes,
   bytesToBase64,
 } from '../security/crypto';
-import { db, encryptedRecordKey, type EncryptedRecord, type LocalWorkspace, type PendingMutation } from './database';
+import {
+  db,
+  encryptedRecordKey,
+  type EncryptedRecord,
+  type LocalWorkspace,
+  type PendingMutation,
+  type TrustedSession,
+} from './database';
 import { normalizeImage } from '../services/images';
-import { downloadRemoteMedia } from '../services/sync';
+import { discoverWorkspace, downloadRemoteMedia, verifyWorkspaceAccess } from '../services/sync';
 
 const ACTIVE_WORKSPACE_KEY = 'activeWorkspaceId';
 const DEVICE_ID_KEY = 'deviceId';
+const TRUSTED_SESSION_KEY = 'trustedSession';
 
 export interface UnlockedWorkspace {
   workspace: LocalWorkspace;
@@ -54,6 +63,39 @@ export async function getActiveWorkspace(): Promise<LocalWorkspace | null> {
   return (await db.workspaces.get(active.value)) ?? null;
 }
 
+export async function rememberTrustedSession(session: UnlockedWorkspace): Promise<void> {
+  if (session.keys.encryptionKey.extractable) {
+    throw new Error('Trusted session encryption key must be non-extractable');
+  }
+  const trustedSession: TrustedSession = {
+    workspaceId: session.workspace.id,
+    encryptionKey: session.keys.encryptionKey,
+    authToken: session.keys.authToken,
+    deviceId: session.deviceId,
+  };
+  await db.settings.put({ key: TRUSTED_SESSION_KEY, value: trustedSession });
+}
+
+export async function restoreTrustedSession(): Promise<UnlockedWorkspace | null> {
+  const stored = await db.settings.get(TRUSTED_SESSION_KEY);
+  if (!isTrustedSession(stored?.value)) return null;
+  const workspace = await db.workspaces.get(stored.value.workspaceId);
+  if (!workspace) return null;
+  return {
+    workspace,
+    keys: {
+      encryptionKey: stored.value.encryptionKey,
+      authToken: stored.value.authToken,
+      authVerifier: workspace.authVerifier,
+    },
+    deviceId: stored.value.deviceId,
+  };
+}
+
+export async function clearTrustedSession(): Promise<void> {
+  await db.settings.delete(TRUSTED_SESSION_KEY);
+}
+
 export async function createWorkspace(passphrase: string): Promise<UnlockedWorkspace> {
   const salt = createSalt();
   const keys = await deriveWorkspaceKeys(passphrase, salt);
@@ -62,6 +104,7 @@ export async function createWorkspace(passphrase: string): Promise<UnlockedWorks
     salt,
     kdfIterations: DEFAULT_KDF_ITERATIONS,
     authVerifier: keys.authVerifier,
+    discoveryId: await deriveDiscoveryId(passphrase),
     createdAt: Date.now(),
     schemaVersion: 1,
   };
@@ -76,9 +119,34 @@ export async function createWorkspace(passphrase: string): Promise<UnlockedWorks
 export async function unlockWorkspace(passphrase: string, workspace: LocalWorkspace): Promise<UnlockedWorkspace> {
   const keys = await deriveWorkspaceKeys(passphrase, workspace.salt, workspace.kdfIterations);
   if (keys.authVerifier !== workspace.authVerifier) throw new Error('口令不正确');
-  return { workspace, keys, deviceId: await getOrCreateDeviceId() };
+  const discoveryId = workspace.discoveryId ?? await deriveDiscoveryId(passphrase);
+  const unlockedWorkspace = workspace.discoveryId ? workspace : { ...workspace, discoveryId };
+  if (!workspace.discoveryId) await db.workspaces.put(unlockedWorkspace);
+  return { workspace: unlockedWorkspace, keys, deviceId: await getOrCreateDeviceId() };
 }
 
+export async function joinWorkspace(passphrase: string): Promise<UnlockedWorkspace> {
+  const discoveryId = await deriveDiscoveryId(passphrase);
+  const remote = await discoverWorkspace(discoveryId);
+  if (!remote) throw new Error('Shared workspace not found');
+  const keys = await deriveWorkspaceKeys(passphrase, remote.salt, remote.kdfIterations);
+  const workspace: LocalWorkspace = {
+    id: remote.id,
+    salt: remote.salt,
+    kdfIterations: remote.kdfIterations,
+    authVerifier: keys.authVerifier,
+    discoveryId,
+    createdAt: Date.now(),
+    schemaVersion: 1,
+  };
+  const session: UnlockedWorkspace = { workspace, keys, deviceId: await getOrCreateDeviceId() };
+  await verifyWorkspaceAccess(session);
+  await db.transaction('rw', db.workspaces, db.settings, async () => {
+    await db.workspaces.put(workspace);
+    await db.settings.put({ key: ACTIVE_WORKSPACE_KEY, value: workspace.id });
+  });
+  return session;
+}
 export async function loadSnapshot(session: UnlockedWorkspace): Promise<DecryptedSnapshot> {
   const records = await db.records.where('workspaceId').equals(session.workspace.id).toArray();
   const places: Place[] = [];
@@ -246,4 +314,15 @@ function readDeletedAt(value: unknown): number | null {
   if (typeof value !== 'object' || value === null || !('deletedAt' in value)) return null;
   const deletedAt = (value as { deletedAt?: unknown }).deletedAt;
   return typeof deletedAt === 'number' ? deletedAt : null;
+}
+
+function isTrustedSession(value: unknown): value is TrustedSession {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<TrustedSession>;
+  return typeof candidate.workspaceId === 'string'
+    && typeof candidate.authToken === 'string'
+    && typeof candidate.deviceId === 'string'
+    && typeof CryptoKey !== 'undefined'
+    && candidate.encryptionKey instanceof CryptoKey
+    && !candidate.encryptionKey.extractable;
 }

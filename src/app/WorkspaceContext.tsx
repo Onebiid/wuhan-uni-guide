@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { createCampusSeeds } from '../data/seeds';
 import { migrateLegacyExport, migrateLegacySnapshot, readLegacySnapshot, type MigrationResult } from '../data/legacy-migration';
 import {
+  clearTrustedSession,
   createWorkspace,
   getActiveWorkspace,
   loadSnapshot,
@@ -12,8 +13,11 @@ import {
   savePlaylist,
   saveRelationship,
   addEncryptedPhoto,
+  joinWorkspace,
   tombstonePlace,
   unlockWorkspace,
+  rememberTrustedSession,
+  restoreTrustedSession,
   type DecryptedSnapshot,
   type UnlockedWorkspace,
 } from '../data/repository';
@@ -32,8 +36,9 @@ interface WorkspaceContextValue {
   pendingCount: number;
   error: string | null;
   syncStatus: SyncOutcome | 'syncing';
-  setup: (passphrase: string, relationship: RelationshipSettings) => Promise<void>;
-  unlock: (passphrase: string) => Promise<void>;
+  setup: (passphrase: string, relationship: RelationshipSettings, trustedDevice?: boolean) => Promise<void>;
+  unlock: (passphrase: string, trustedDevice?: boolean) => Promise<void>;
+  join: (passphrase: string, trustedDevice?: boolean) => Promise<void>;
   lock: () => void;
   upsertPlace: (place: Place) => Promise<Place>;
   deletePlace: (place: Place) => Promise<Place>;
@@ -66,14 +71,36 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncOutcome | 'syncing'>(import.meta.env.VITE_SYNC_API ? 'pending' : 'disabled');
   const syncPromise = useRef<Promise<void> | null>(null);
+  const sessionRef = useRef<UnlockedWorkspace | null>(null);
+  const syncingSessionRef = useRef<UnlockedWorkspace | null>(null);
+  const queuedSyncSessionRef = useRef<UnlockedWorkspace | null>(null);
 
   useEffect(() => {
     let active = true;
-    void getActiveWorkspace().then((value) => {
+    void (async () => {
+      try {
+        const trustedSession = await restoreTrustedSession();
+        if (!active) return;
+        if (trustedSession) {
+          const nextSnapshot = await loadSnapshot(trustedSession);
+          const nextPendingCount = await pendingMutationCount(trustedSession.workspace.id);
+          if (!active) return;
+          sessionRef.current = trustedSession;
+          setSession(trustedSession);
+          setWorkspace(trustedSession.workspace);
+          setSnapshot(nextSnapshot);
+          setPendingCount(nextPendingCount);
+          setBootState('unlocked');
+          return;
+        }
+      } catch {
+        await clearTrustedSession().catch(() => undefined);
+      }
+      const value = await getActiveWorkspace();
       if (!active) return;
       setWorkspace(value);
       setBootState(value ? 'locked' : 'setup');
-    }).catch(() => {
+    })().catch(() => {
       if (!active) return;
       setError('无法读取本机安全存储');
       setBootState('setup');
@@ -89,16 +116,20 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setPendingCount(await pendingMutationCount(session.workspace.id));
   }, [session]);
 
-  const load = useCallback(async (nextSession: UnlockedWorkspace) => {
+  const load = useCallback(async (nextSession: UnlockedWorkspace, trustedDevice: boolean) => {
     const nextSnapshot = await loadSnapshot(nextSession);
+    const nextPendingCount = await pendingMutationCount(nextSession.workspace.id);
+    if (trustedDevice) await rememberTrustedSession(nextSession);
+    else await clearTrustedSession();
+    sessionRef.current = nextSession;
     setSession(nextSession);
     setWorkspace(nextSession.workspace);
     setSnapshot(nextSnapshot);
-    setPendingCount(await pendingMutationCount(nextSession.workspace.id));
+    setPendingCount(nextPendingCount);
     setBootState('unlocked');
   }, []);
 
-  const setup = useCallback(async (passphrase: string, relationship: RelationshipSettings) => {
+  const setup = useCallback(async (passphrase: string, relationship: RelationshipSettings, trustedDevice = true) => {
     setError(null);
     try {
       const nextSession = await createWorkspace(passphrase);
@@ -108,29 +139,44 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       await persistMigratedMemories(nextSession, legacy);
       await saveRelationship(nextSession, relationship);
       setMigration(legacy);
-      await load(nextSession);
+      await load(nextSession, trustedDevice);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '无法创建安全空间');
       throw reason;
     }
   }, [load]);
 
-  const unlock = useCallback(async (passphrase: string) => {
+  const unlock = useCallback(async (passphrase: string, trustedDevice = true) => {
     if (!workspace) return;
     setError(null);
     try {
-      await load(await unlockWorkspace(passphrase, workspace));
+      await load(await unlockWorkspace(passphrase, workspace), trustedDevice);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '无法解锁');
       throw reason;
     }
   }, [load, workspace]);
 
+  const join = useCallback(async (passphrase: string, trustedDevice = true) => {
+    setError(null);
+    try {
+      await load(await joinWorkspace(passphrase), trustedDevice);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '无法加入共享空间');
+      throw reason;
+    }
+  }, [load]);
   const lock = useCallback(() => {
+    sessionRef.current = null;
+    queuedSyncSessionRef.current = null;
     setSession(null);
     setSnapshot(emptySnapshot);
     setMigration(null);
     setBootState(workspace ? 'locked' : 'setup');
+    setSyncStatus(import.meta.env.VITE_SYNC_API ? 'pending' : 'disabled');
+    void clearTrustedSession().catch(() => {
+      setError('Unable to clear trusted session');
+    });
   }, [workspace]);
 
   const upsertPlace = useCallback(async (place: Place) => {
@@ -188,16 +234,46 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [session, upsertMemory]);
 
   const syncNow = useCallback(async () => {
-    if (!session || syncPromise.current) return syncPromise.current ?? undefined;
-    const operation = (async () => {
-      setSyncStatus('syncing');
-      const outcome = await syncWorkspace(session);
-      setSyncStatus(outcome);
-      setSnapshot(await loadSnapshot(session));
-      setPendingCount(await pendingMutationCount(session.workspace.id));
-    })();
-    syncPromise.current = operation;
-    try { await operation; } finally { syncPromise.current = null; }
+    if (!session || sessionRef.current !== session) return;
+    if (syncPromise.current) {
+      if (syncingSessionRef.current !== session) queuedSyncSessionRef.current = session;
+      await syncPromise.current;
+      return;
+    }
+
+    let nextSession: UnlockedWorkspace | null = session;
+    while (nextSession) {
+      const activeSession = nextSession;
+      syncingSessionRef.current = activeSession;
+      const operation = (async () => {
+        setSyncStatus('syncing');
+        const outcome = await syncWorkspace(activeSession);
+        if (sessionRef.current !== activeSession) return;
+        const nextSnapshot = await loadSnapshot(activeSession);
+        const nextPendingCount = await pendingMutationCount(activeSession.workspace.id);
+        if (sessionRef.current !== activeSession) return;
+        setSyncStatus(outcome);
+        setSnapshot(nextSnapshot);
+        setPendingCount(nextPendingCount);
+      })();
+      syncPromise.current = operation;
+      let failed = false;
+      let failure: unknown;
+      try {
+        await operation;
+      } catch (reason) {
+        failed = true;
+        failure = reason;
+      } finally {
+        if (syncPromise.current === operation) syncPromise.current = null;
+        if (syncingSessionRef.current === activeSession) syncingSessionRef.current = null;
+      }
+
+      const queuedSession = queuedSyncSessionRef.current;
+      queuedSyncSessionRef.current = null;
+      nextSession = queuedSession && sessionRef.current === queuedSession ? queuedSession : null;
+      if (failed && !nextSession) throw failure;
+    }
   }, [session]);
 
   const importLegacyJson = useCallback(async (text: string) => {
@@ -215,18 +291,27 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!session) return;
     const online = () => { void syncNow(); };
+    const foregroundSync = () => {
+      if (document.visibilityState === 'visible') void syncNow();
+    };
+    const interval = window.setInterval(foregroundSync, 60_000);
     window.addEventListener('online', online);
+    document.addEventListener('visibilitychange', foregroundSync);
     void syncNow();
-    return () => window.removeEventListener('online', online);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('online', online);
+      document.removeEventListener('visibilitychange', foregroundSync);
+    };
   }, [session, syncNow]);
 
   const value = useMemo<WorkspaceContextValue>(() => ({
     bootState, workspace, session, snapshot, migration, pendingCount, error, syncStatus,
-    setup, unlock, lock, upsertPlace, deletePlace, undoDeletePlace, upsertMemory,
+    setup, unlock, join, lock, upsertPlace, deletePlace, undoDeletePlace, upsertMemory,
     updateRelationship, updatePlaylist, addPhotos, refreshPendingCount, syncNow, importLegacyJson,
   }), [
     bootState, workspace, session, snapshot, migration, pendingCount, error, syncStatus,
-    setup, unlock, lock, upsertPlace, deletePlace, undoDeletePlace, upsertMemory,
+    setup, unlock, join, lock, upsertPlace, deletePlace, undoDeletePlace, upsertMemory,
     updateRelationship, updatePlaylist, addPhotos, refreshPendingCount, syncNow, importLegacyJson,
   ]);
 
